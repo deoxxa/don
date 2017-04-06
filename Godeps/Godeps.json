@@ -4,6 +4,28 @@
 	"GodepVersion": "v79",
 	"Deps": [
 		{
+			"ImportPath": "github.com/GeertJohan/go.rice",
+			"Rev": "4bbccbfa39e784796e483270451217d3369ecfbe"
+		},
+		{
+			"ImportPath": "github.com/GeertJohan/go.rice/embedded",
+			"Rev": "4bbccbfa39e784796e483270451217d3369ecfbe"
+		},
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.11.0-25-g881bee4",
+			"Rev": "881bee4e20a5d11a6a88a5667c6f292072ac1963"
+		},
+		{
+			"ImportPath": "github.com/daaku/go.zipexe",
+			"Rev": "a5fe2436ffcb3236e175e5149162b41cd28bd27d"
+		},
+		{
+			"ImportPath": "github.com/gorilla/mux",
+			"Comment": "v1.3.0-5-g599cba5",
+			"Rev": "599cba5e7b6137d46ddf58fb1765f5d928e69604"
+		},
+		{
 			"ImportPath": "github.com/jaytaylor/html2text",
 			"Rev": "24f9b0f63599c6bbecc3b773636b54f8d302db67"
 		},
@@ -13,14 +35,27 @@
 			"Rev": "307ae868f90f4ee1b73ebe4596e0394237dacce8"
 		},
 		{
+			"ImportPath": "github.com/kardianos/osext",
+			"Rev": "9d302b58e975387d0b4d9be876622c86cefe64be"
+		},
+		{
 			"ImportPath": "github.com/kennygrant/sanitize",
 			"Comment": "v1.2",
 			"Rev": "6a0bfdde8629a3a3a7418a7eae45c54154692514"
 		},
 		{
+			"ImportPath": "github.com/meatballhat/negroni-logrus",
+			"Rev": "7c570a907cfc69cdc004ad506c6f5e234815b936"
+		},
+		{
 			"ImportPath": "github.com/pkg/errors",
 			"Comment": "v0.7.1-1-ga887431",
 			"Rev": "a887431f7f6ef7687b556dbf718d9f351d4858a0"
+		},
+		{
+			"ImportPath": "github.com/urfave/negroni",
+			"Comment": "v0.2.0-104-gc0db5fe",
+			"Rev": "c0db5feaa33826cd5117930c8f4ee5c0f565eec6"
 		},
 		{
 			"ImportPath": "golang.org/x/net/html",
@@ -29,6 +64,10 @@
 		{
 			"ImportPath": "golang.org/x/net/html/atom",
 			"Rev": "ffcf1bedda3b04ebb15a168a59800a73d6dc0f4d"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "99f16d856c9836c42d24e7ab64ea72916925fa97"
 		}
 	]
 }

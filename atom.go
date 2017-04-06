@@ -8,6 +8,7 @@ import (
 	"github.com/jaytaylor/html2text"
 	"github.com/kennygrant/sanitize"
 	"github.com/pkg/errors"
+	"gopkg.in/kyokomi/emoji.v1"
 )
 
 func AtomFetch(u string) (*AtomFeed, error) {
@@ -85,10 +86,6 @@ func (a *AtomAuthor) String() string {
 		s += " <" + a.Email + ">"
 	}
 
-	if a.URI != "" {
-		s += " (" + a.URI + ")"
-	}
-
 	return s
 }
 
@@ -155,12 +152,12 @@ func (c *AtomContent) HTML() template.HTML {
 	}
 
 	if c.Type != "html" {
-		return template.HTML(sanitize.HTML(c.Body))
+		return template.HTML(sanitize.HTML(emoji.Sprint(c.Body)))
 	}
 
-	t, err := sanitize.HTMLAllowing(c.Body)
+	t, err := sanitize.HTMLAllowing(emoji.Sprint(c.Body))
 	if err != nil {
-		return template.HTML(sanitize.HTML(c.Body))
+		return template.HTML(sanitize.HTML(emoji.Sprint(c.Body)))
 	}
 
 	return template.HTML(t)
