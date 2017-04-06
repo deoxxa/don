@@ -68,6 +68,11 @@
 		{
 			"ImportPath": "golang.org/x/sys/unix",
 			"Rev": "99f16d856c9836c42d24e7ab64ea72916925fa97"
+		},
+		{
+			"ImportPath": "gopkg.in/kyokomi/emoji.v1",
+			"Comment": "v1.5",
+			"Rev": "7e06b236c489543f53868841f188a294e3383eab"
 		}
 	]
 }
