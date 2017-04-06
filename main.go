@@ -22,7 +22,7 @@ var (
 
 				<form id="find-feed" method="get" action="/find-feed">
 					<label for="user">user</label>
-					<input id="user" name="user" placeholder="e.g. your-username@mastodon.social" />
+					<input id="user" name="user" placeholder="e.g. acct:your-username@mastodon.social" />
 					<input type="submit" />
 				</form>
 			</body>
