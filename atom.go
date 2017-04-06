@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/xml"
+	"html/template"
 	"net/http"
 
 	"github.com/jaytaylor/html2text"
+	"github.com/kennygrant/sanitize"
 	"github.com/pkg/errors"
 )
 
@@ -132,7 +134,7 @@ type AtomContent struct {
 	Body string `xml:",chardata" json:"body,omitempty"`
 }
 
-func (c *AtomContent) String() string {
+func (c *AtomContent) Text() string {
 	if c == nil {
 		return "NIL"
 	}
@@ -145,4 +147,21 @@ func (c *AtomContent) String() string {
 	}
 
 	return c.Body
+}
+
+func (c *AtomContent) HTML() template.HTML {
+	if c == nil {
+		return ""
+	}
+
+	if c.Type != "html" {
+		return template.HTML(sanitize.HTML(c.Body))
+	}
+
+	t, err := sanitize.HTMLAllowing(c.Body)
+	if err != nil {
+		return template.HTML(sanitize.HTML(c.Body))
+	}
+
+	return template.HTML(t)
 }

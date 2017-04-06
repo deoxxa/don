@@ -30,7 +30,7 @@ func AcctFromString(s string) (*Acct, error) {
 	}
 
 	if u.Scheme != "acct" {
-		return nil, errors.Errorf("AcctFromString: invalid scheme; expected acct but got %s", u.Scheme)
+		return nil, errors.Errorf("AcctFromString: invalid scheme; expected acct but got %q", u.Scheme)
 	}
 
 	bits := strings.Split(u.Opaque, "@")
