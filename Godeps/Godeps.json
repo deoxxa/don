@@ -48,6 +48,10 @@
 			"Rev": "7c570a907cfc69cdc004ad506c6f5e234815b936"
 		},
 		{
+			"ImportPath": "github.com/phyber/negroni-gzip/gzip",
+			"Rev": "8118ae63850fee22b2fe43cea81d3bc149774503"
+		},
+		{
 			"ImportPath": "github.com/pkg/errors",
 			"Comment": "v0.7.1-1-ga887431",
 			"Rev": "a887431f7f6ef7687b556dbf718d9f351d4858a0"

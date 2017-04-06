@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jtacoma/uritemplates"
 	"github.com/meatballhat/negroni-logrus"
+	"github.com/phyber/negroni-gzip/gzip"
 	"github.com/urfave/negroni"
 )
 
@@ -200,6 +201,7 @@ func main() {
 
 	n.Use(negronilogrus.NewMiddleware())
 	n.Use(negroni.NewRecovery())
+	n.Use(gzip.Gzip(gzip.BestCompression))
 	n.UseHandler(m)
 
 	if err := http.ListenAndServe(*addr, n); err != nil {
