@@ -1,0 +1,34 @@
+{
+	"ImportPath": "fknsrs.biz/p/don",
+	"GoVersion": "go1.8",
+	"GodepVersion": "v79",
+	"Deps": [
+		{
+			"ImportPath": "github.com/jaytaylor/html2text",
+			"Rev": "24f9b0f63599c6bbecc3b773636b54f8d302db67"
+		},
+		{
+			"ImportPath": "github.com/jtacoma/uritemplates",
+			"Comment": "v1.0.0",
+			"Rev": "307ae868f90f4ee1b73ebe4596e0394237dacce8"
+		},
+		{
+			"ImportPath": "github.com/kennygrant/sanitize",
+			"Comment": "v1.2",
+			"Rev": "6a0bfdde8629a3a3a7418a7eae45c54154692514"
+		},
+		{
+			"ImportPath": "github.com/pkg/errors",
+			"Comment": "v0.7.1-1-ga887431",
+			"Rev": "a887431f7f6ef7687b556dbf718d9f351d4858a0"
+		},
+		{
+			"ImportPath": "golang.org/x/net/html",
+			"Rev": "ffcf1bedda3b04ebb15a168a59800a73d6dc0f4d"
+		},
+		{
+			"ImportPath": "golang.org/x/net/html/atom",
+			"Rev": "ffcf1bedda3b04ebb15a168a59800a73d6dc0f4d"
+		}
+	]
+}
