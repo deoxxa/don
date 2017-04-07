@@ -1,5 +1,5 @@
 don: *.go public.rice-box.go
-	go build -o don
+	go build -ldflags=-s -o don
 
 don_linux-amd64: *.go public.rice-box.go
 	docker run --rm -it -v $(shell pwd):/go/src/fknsrs.biz/p/don golang:1.8 bash -c 'cd /go/src/fknsrs.biz/p/don && go build -o don_linux-amd64'

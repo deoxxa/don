@@ -1,6 +1,7 @@
 package main // import "fknsrs.biz/p/don"
 
 import (
+	"database/sql"
 	"flag"
 	"html/template"
 	"net/http"
@@ -10,17 +11,25 @@ import (
 	"github.com/GeertJohan/go.rice"
 	"github.com/gorilla/mux"
 	"github.com/jtacoma/uritemplates"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/meatballhat/negroni-logrus"
 	"github.com/phyber/negroni-gzip/gzip"
 	"github.com/urfave/negroni"
 )
 
 var (
-	addr = flag.String("addr", ":3000", "Address to listen on.")
+	addr     = flag.String("addr", ":3000", "Address to listen on.")
+	database = flag.String("database", "don.db", "Where to put the SQLite database.")
 )
 
 func main() {
 	flag.Parse()
+
+	db, err := sql.Open("sqlite3", *database)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
 
 	// this has to be here for rice to work
 	_, _ = rice.FindBox("public")
