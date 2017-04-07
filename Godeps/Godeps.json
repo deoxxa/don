@@ -44,6 +44,11 @@
 			"Rev": "6a0bfdde8629a3a3a7418a7eae45c54154692514"
 		},
 		{
+			"ImportPath": "github.com/mattn/go-sqlite3",
+			"Comment": "v1.2.0-78-gf68bb95",
+			"Rev": "f68bb9500085065e873f0a3b58b58ee97ad394f4"
+		},
+		{
 			"ImportPath": "github.com/meatballhat/negroni-logrus",
 			"Rev": "7c570a907cfc69cdc004ad506c6f5e234815b936"
 		},
