@@ -67,12 +67,16 @@
 			"Rev": "c0db5feaa33826cd5117930c8f4ee5c0f565eec6"
 		},
 		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "d1e1b351919c6738fdeb9893d5c998b161464f0c"
+		},
+		{
 			"ImportPath": "golang.org/x/net/html",
-			"Rev": "ffcf1bedda3b04ebb15a168a59800a73d6dc0f4d"
+			"Rev": "d1e1b351919c6738fdeb9893d5c998b161464f0c"
 		},
 		{
 			"ImportPath": "golang.org/x/net/html/atom",
-			"Rev": "ffcf1bedda3b04ebb15a168a59800a73d6dc0f4d"
+			"Rev": "d1e1b351919c6738fdeb9893d5c998b161464f0c"
 		},
 		{
 			"ImportPath": "golang.org/x/sys/unix",
