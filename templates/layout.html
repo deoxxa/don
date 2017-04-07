@@ -1,0 +1,19 @@
+{{define "layout"}}
+  <html>
+    <head>
+      <title>{{block "title" .}}DON{{end}}</title>
+      <link rel="stylesheet" href="/style.css" />
+    </head>
+    <body>
+      <header>
+        <h1>
+          <a href="/">DON</a>
+        </h1>
+      </header>
+
+      <div class="wrapper">
+        {{block "content" .}}???{{end}}
+      </div>
+    </body>
+  </html>
+{{end}}

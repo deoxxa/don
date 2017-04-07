@@ -1,0 +1,21 @@
+{{define "content"}}
+  <form id="find-feed" method="get" action="/find-feed" autocomplete="off">
+    <input
+      id="user"
+      name="user"
+      type="text"
+      placeholder="e.g. your-username@your-provider.com"
+      value="TheAdmin@mastodon.cloud"
+    />
+    <br>
+    <input type="submit" value="Go!" />
+  </form>
+
+  <p class="blurb">
+    This is a <em>ridiculously</em> simple, read-only OStatus client.
+    Mostly an experiment. <a href="https://www.fknsrs.biz/p/don">Source
+    code is available</a>.
+  </p>
+{{end}}
+
+{{template "layout" .}}

@@ -16,82 +16,6 @@ import (
 )
 
 var (
-	homeTemplate = template.Must(template.New("home").Parse(`
-		<html>
-			<head>
-				<title>DON</title>
-				<link rel="stylesheet" href="/style.css">
-			</head>
-			<body>
-				<header>
-					<h1><a href="/">DON</a></h1>
-				</header>
-
-				<div class="wrapper">
-					<form id="find-feed" method="get" action="/find-feed" autocomplete="off">
-						<input id="user" name="user" type="text" placeholder="e.g. your-username@your-provider.com" value="TheAdmin@mastodon.cloud" />
-						<br>
-						<input type="submit" value="Go!" />
-					</form>
-
-					<p class="blurb">
-						This is a <em>ridiculously</em> simple, read-only OStatus client. Mostly an experiment. <a href="https://www.fknsrs.biz/p/don">Source code is available</a>.
-					</p>
-				</div>
-			</body>
-		</html>
-	`))
-
-	feedTemplate = template.Must(template.New("feed").Parse(`
-		{{$feed := .Feed}}
-
-		<html>
-			<head>
-				<title>{{$feed.Author}} @ DON</title>
-				<link rel="stylesheet" href="/style.css">
-			</head>
-			<body>
-				<header>
-					<h1><a href="/">DON</a></h1>
-				</header>
-
-				<div class="wrapper">
-					<h1>{{$feed.Author}}</h1>
-
-					{{range $entry := $feed.Entry}}
-						{{if $object := $entry.Object}}
-							<h4>{{$object.Published}} (shared from {{$object.Author}} @ {{$entry.Published}})</h4>
-
-							{{if $content := $object.Content}}
-								<p>{{$content.HTML}}</p>
-							{{end}}
-						{{else if $content := $entry.Content}}
-							{{if $inReplyTo := $entry.InReplyTo}}
-								<h4>{{$entry.Published}} (<a href="{{$inReplyTo.Href}}">in reply to</a>)</h4>
-							{{else}}
-								<h4>{{$entry.Published}}</h4>
-							{{end}}
-
-							<p>{{$content.HTML}}</p>
-						{{else if eq $entry.Verb "http://activitystrea.ms/schema/1.0/delete"}}
-							<h4>{{$entry.Published}}</h4>
-
-							<s>(deleted @ {{$entry.Updated}})</s>
-						{{end}}
-
-						<hr>
-					{{end}}
-
-					{{if $link := $feed.GetLink "next"}}
-						<a href="/show-feed?url={{$link.Href}}" rel="next">earlier</a>
-					{{end}}
-				</div>
-			</body>
-		</html>
-	`))
-)
-
-var (
 	addr = flag.String("addr", ":3000", "Address to listen on.")
 )
 
@@ -100,6 +24,7 @@ func main() {
 
 	// this has to be here for rice to work
 	_, _ = rice.FindBox("public")
+	_, _ = rice.FindBox("templates")
 
 	cfg := rice.Config{LocateOrder: []rice.LocateMethod{
 		rice.LocateWorkingDirectory,
@@ -107,13 +32,53 @@ func main() {
 		rice.LocateEmbedded,
 	}}
 
-	box := cfg.MustFindBox("public")
+	publicBox := cfg.MustFindBox("public")
+	templateBox := cfg.MustFindBox("templates")
+
+	rootTemplate := template.New("root")
+
+	if err := templateBox.Walk("/", func(name string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() || !strings.HasSuffix(name, ".html") || strings.HasPrefix(name, "page_") {
+			return nil
+		}
+
+		if _, err := rootTemplate.Parse(templateBox.MustString(name)); err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		panic(err)
+	}
+
+	templateHome := template.Must(template.Must(rootTemplate.Clone()).Parse(templateBox.MustString("page_home.html")))
+	templateFeed := template.Must(template.Must(rootTemplate.Clone()).Parse(templateBox.MustString("page_feed.html")))
 
 	m := mux.NewRouter()
 
 	m.Methods("GET").Path("/").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		rw.Header().Set("content-type", "text/html")
-		if err := homeTemplate.Execute(rw, nil); err != nil {
+		if err := templateHome.Execute(rw, nil); err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	})
+
+	m.Methods("GET").Path("/show-feed").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		feed, err := AtomFetch(r.URL.Query().Get("url"))
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		rw.Header().Set("content-type", "text/html")
+		rw.WriteHeader(http.StatusOK)
+
+		if err := templateFeed.Execute(rw, map[string]interface{}{"Feed": feed}); err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -179,23 +144,7 @@ func main() {
 		rw.WriteHeader(http.StatusSeeOther)
 	})
 
-	m.Methods("GET").Path("/show-feed").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		feed, err := AtomFetch(r.URL.Query().Get("url"))
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		rw.Header().Set("content-type", "text/html")
-		rw.WriteHeader(http.StatusOK)
-
-		if err := feedTemplate.Execute(rw, map[string]interface{}{"Feed": feed}); err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	})
-
-	m.NotFoundHandler = http.FileServer(box.HTTPBox())
+	m.NotFoundHandler = http.FileServer(publicBox.HTTPBox())
 
 	n := negroni.New()
 

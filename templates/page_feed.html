@@ -1,0 +1,37 @@
+{{define "title"}}{{.Feed.Author}} @ DON{{end}}
+
+{{define "content"}}
+  {{$feed := .Feed}}
+
+  <h1>{{$feed.Author}}</h1>
+
+  {{range $entry := $feed.Entry}}
+    {{if $object := $entry.Object}}
+      <h4>{{$object.Published}} (shared from {{$object.Author}} @ {{$entry.Published}})</h4>
+
+      {{if $content := $object.Content}}
+        <p>{{$content.HTML}}</p>
+      {{end}}
+    {{else if $content := $entry.Content}}
+      {{if $link := $entry.InReplyTo}}
+        <h4>{{$entry.Published}} (<a href="{{$link.Href}}">in reply to</a>)</h4>
+      {{else}}
+        <h4>{{$entry.Published}}</h4>
+      {{end}}
+
+      <p>{{$content.HTML}}</p>
+    {{else if eq $entry.Verb "http://activitystrea.ms/schema/1.0/delete"}}
+      <h4>{{$entry.Published}}</h4>
+
+      <s>(deleted @ {{$entry.Updated}})</s>
+    {{end}}
+
+    <hr>
+  {{end}}
+
+  {{if $link := $feed.GetLink "next"}}
+    <a href="/show-feed?url={{$link.Href}}" rel="next">earlier</a>
+  {{end}}
+{{end}}
+
+{{template "layout" .}}
