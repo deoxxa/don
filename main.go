@@ -19,7 +19,6 @@ import (
 	"github.com/jtacoma/uritemplates"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/meatballhat/negroni-logrus"
-	"github.com/phyber/negroni-gzip/gzip"
 	"github.com/urfave/negroni"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -380,7 +379,6 @@ func main() {
 
 	n.Use(negronilogrus.NewMiddleware())
 	n.Use(negroni.NewRecovery())
-	n.Use(gzip.Gzip(gzip.BestCompression))
 	n.UseHandler(m)
 
 	logrus.Info("starting server")
