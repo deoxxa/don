@@ -181,10 +181,11 @@ func (c *PubSubClient) Handler() *PubSubHandler {
 
 func PubSubAlter(hub, topic, callbackURL, mode string) error {
 	res, err := http.PostForm(hub, url.Values{
-		"hub.mode":     []string{mode},
-		"hub.topic":    []string{topic},
-		"hub.callback": []string{callbackURL},
-		"hub.verify":   []string{"sync"},
+		"hub.callback":      []string{callbackURL},
+		"hub.mode":          []string{mode},
+		"hub.topic":         []string{topic},
+		"hub.verify":        []string{"async"},
+		"hub.lease_seconds": []string{"604800"},
 	})
 
 	if err != nil {
