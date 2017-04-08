@@ -19,6 +19,7 @@ import (
 	"github.com/jtacoma/uritemplates"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/meatballhat/negroni-logrus"
+	"github.com/sebest/xff"
 	"github.com/urfave/negroni"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -383,8 +384,14 @@ func main() {
 
 	m.NotFoundHandler = http.FileServer(publicBox.HTTPBox())
 
+	xffh, err := xff.Default()
+	if err != nil {
+		panic(err)
+	}
+
 	n := negroni.New()
 
+	n.Use(xffh)
 	n.Use(negronilogrus.NewMiddleware())
 	n.Use(negroni.NewRecovery())
 	n.UseHandler(m)
