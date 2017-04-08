@@ -372,7 +372,7 @@ func main() {
 		}
 
 		feedLink := wf.GetLink("http://schemas.google.com/g/2010#updates-from")
-		if feedLink == nil {
+		if feedLink == nil || feedLink.Href == "" {
 			http.Error(rw, "no feed link found in webfinger response", http.StatusInternalServerError)
 			return
 		}
