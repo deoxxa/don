@@ -59,17 +59,28 @@ func main() {
 		logrus.Debug("hack: couldn't disable http2 - POST requests may not work")
 	}
 
+	// this has to be here for rice to work
+	_, _ = rice.FindBox("public")
+	_, _ = rice.FindBox("templates")
+	_, _ = rice.FindBox("migrations")
+
+	cfg := rice.Config{LocateOrder: []rice.LocateMethod{
+		rice.LocateWorkingDirectory,
+		rice.LocateFS,
+		rice.LocateEmbedded,
+	}}
+
+	publicBox := cfg.MustFindBox("public")
+	templateBox := cfg.MustFindBox("templates")
+	migrationBox := cfg.MustFindBox("migrations")
+
 	db, err := sql.Open("sqlite3", *database)
 	if err != nil {
 		panic(err)
 	}
 	defer db.Close()
 
-	if _, err := db.Exec(`
-		create table if not exists pubsub_state (id text not null primary key, hub text not null, topic text not null, callback_url text not null, expires_at datetime, unique (hub, topic));
-	  create table if not exists people (feed_url text not null primary key, first_seen datetime not null, name text, display_name text, email text, summary text, note text);
-		create table if not exists posts (feed_url text not null, id text not null, created_at datetime not null, raw_entry text not null, primary key (feed_url, id));
-	`); err != nil {
+	if err := migrate(db, migrationBox); err != nil {
 		panic(err)
 	}
 
@@ -182,19 +193,6 @@ func main() {
 			time.Sleep(*pubsubRefreshInterval)
 		}
 	}()
-
-	// this has to be here for rice to work
-	_, _ = rice.FindBox("public")
-	_, _ = rice.FindBox("templates")
-
-	cfg := rice.Config{LocateOrder: []rice.LocateMethod{
-		rice.LocateWorkingDirectory,
-		rice.LocateFS,
-		rice.LocateEmbedded,
-	}}
-
-	publicBox := cfg.MustFindBox("public")
-	templateBox := cfg.MustFindBox("templates")
 
 	rootTemplate := template.New("root")
 
