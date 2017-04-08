@@ -281,7 +281,7 @@ func main() {
 		hubLink := feed.GetLink("hub")
 		selfLink := feed.GetLink("self")
 
-		if hubLink != nil && selfLink != nil && hubLink.Href != "" && selfLink.Href != "" {
+		if hubLink != nil && selfLink != nil && hubLink.Href != "" && selfLink.Href != "" && !strings.Contains(selfLink.Href, "?") {
 			if err := psc.Subscribe(hubLink.Href, selfLink.Href); err != nil {
 				http.Error(rw, err.Error(), http.StatusInternalServerError)
 				return
