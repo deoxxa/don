@@ -1,14 +1,11 @@
 {{define "content"}}
-  <form id="find-feed" method="get" action="/find-feed" autocomplete="off">
-    <input
-      id="user"
-      name="user"
-      type="text"
-      placeholder="e.g. your-username@your-provider.com"
-      value="TheAdmin@mastodon.cloud"
-    />
-    <br>
-    <input type="submit" value="Go!" />
+  <form id="find-feed" method="get" action="/find-feed">
+    <label for="user">Find a user anywhere in the fediverse!</label>
+
+    <div>
+      <input id="user" name="user" type="text" placeholder="e.g. your-username@your-provider.com" required />
+      <input type="submit" value="👀" />
+    </div>
   </form>
 
   <p class="blurb">

@@ -33,17 +33,35 @@ header > h1 > a:link, header > h1 > a:visited {
 #find-feed {
 	margin: 1em auto;
 	text-align: center;
-	font-size: 2em;
+	flex-direction: row;
+}
+
+#find-feed > div {
+	display: flex;
+}
+
+#find-feed label {
+	display: block;
+	margin-bottom: 1em;
+}
+
+#find-feed input {
+	font-size: 1em;
+	background: #fff;
+	border: 1px solid rgba(0, 0, 0, .2);
 }
 
 #find-feed input[type=text] {
-	font-size: 1em;
-	width: 100%;
+	flex: 1;
+	border-radius: 6px 0 0 6px;
 	text-align: center;
 }
 
 #find-feed input[type=submit] {
-	margin-top: 1em;
+	border-radius: 0 6px 6px 0;
+	padding: .5em 1.2em;
+	cursor: pointer;
+	border-left: none;
 }
 
 .blurb {
