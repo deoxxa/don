@@ -4,6 +4,10 @@
 	"GodepVersion": "v79",
 	"Deps": [
 		{
+			"ImportPath": "fknsrs.biz/p/multierror",
+			"Rev": "b817f4bc5672155242b16a0ccabbe4efb8570e29"
+		},
+		{
 			"ImportPath": "github.com/GeertJohan/go.rice",
 			"Rev": "4bbccbfa39e784796e483270451217d3369ecfbe"
 		},
@@ -75,6 +79,10 @@
 			"Rev": "b061729afc07e77a8aa4fad0a2fd840958f1942a"
 		},
 		{
+			"ImportPath": "github.com/sebest/xff",
+			"Rev": "6c115e0ffa35d6a2e3f7a9e797c9cf07f0da4b9f"
+		},
+		{
 			"ImportPath": "github.com/tomnomnom/linkheader",
 			"Comment": "0.1.0-5-g236df73",
 			"Rev": "236df730ed7334edb33cb10ba79407491fb4e147"
@@ -95,10 +103,6 @@
 		{
 			"ImportPath": "golang.org/x/net/html/atom",
 			"Rev": "d1e1b351919c6738fdeb9893d5c998b161464f0c"
-		},
-		{
-			"ImportPath": "golang.org/x/sync/errgroup",
-			"Rev": "5a06fca2c336a4b2b2fcb45702e8c47621b2aa2c"
 		},
 		{
 			"ImportPath": "golang.org/x/sys/unix",
