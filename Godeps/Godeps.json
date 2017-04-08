@@ -17,6 +17,18 @@
 			"Rev": "881bee4e20a5d11a6a88a5667c6f292072ac1963"
 		},
 		{
+			"ImportPath": "github.com/alecthomas/template",
+			"Rev": "a0175ee3bccc567396460bf5acd36800cb10c49c"
+		},
+		{
+			"ImportPath": "github.com/alecthomas/template/parse",
+			"Rev": "a0175ee3bccc567396460bf5acd36800cb10c49c"
+		},
+		{
+			"ImportPath": "github.com/alecthomas/units",
+			"Rev": "2efee857e7cfd4f3d0138cc3cbb1b4966962b93a"
+		},
+		{
 			"ImportPath": "github.com/daaku/go.zipexe",
 			"Rev": "a5fe2436ffcb3236e175e5149162b41cd28bd27d"
 		},
@@ -62,6 +74,16 @@
 			"Rev": "a887431f7f6ef7687b556dbf718d9f351d4858a0"
 		},
 		{
+			"ImportPath": "github.com/satori/go.uuid",
+			"Comment": "v1.1.0-6-gb061729",
+			"Rev": "b061729afc07e77a8aa4fad0a2fd840958f1942a"
+		},
+		{
+			"ImportPath": "github.com/tomnomnom/linkheader",
+			"Comment": "0.1.0-5-g236df73",
+			"Rev": "236df730ed7334edb33cb10ba79407491fb4e147"
+		},
+		{
 			"ImportPath": "github.com/urfave/negroni",
 			"Comment": "v0.2.0-104-gc0db5fe",
 			"Rev": "c0db5feaa33826cd5117930c8f4ee5c0f565eec6"
@@ -79,8 +101,17 @@
 			"Rev": "d1e1b351919c6738fdeb9893d5c998b161464f0c"
 		},
 		{
+			"ImportPath": "golang.org/x/sync/errgroup",
+			"Rev": "5a06fca2c336a4b2b2fcb45702e8c47621b2aa2c"
+		},
+		{
 			"ImportPath": "golang.org/x/sys/unix",
 			"Rev": "99f16d856c9836c42d24e7ab64ea72916925fa97"
+		},
+		{
+			"ImportPath": "gopkg.in/alecthomas/kingpin.v2",
+			"Comment": "v2.2.3",
+			"Rev": "e9044be3ab2a8e11d4e1f418d12f0790d57e8d70"
 		},
 		{
 			"ImportPath": "gopkg.in/kyokomi/emoji.v1",
