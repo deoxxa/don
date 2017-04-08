@@ -317,6 +317,16 @@ func main() {
 			user = "acct:" + user
 		}
 
+		var feedURL string
+		if err := db.QueryRow("select feed_url from people where email = $1", strings.TrimPrefix(user, "acct:")).Scan(&feedURL); err == nil {
+			rw.Header().Set("location", "/show-feed?"+url.Values{"url": []string{feedURL}}.Encode())
+			rw.WriteHeader(http.StatusSeeOther)
+			return
+		} else if err != sql.ErrNoRows {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		acct, err := AcctFromString(user)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusBadRequest)
