@@ -11,7 +11,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
 	"github.com/tomnomnom/linkheader"
-	"golang.org/x/sync/errgroup"
 )
 
 func PubSubMakeCallbackURL(baseURL, id string) string {
@@ -69,7 +68,7 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 		return errors.Wrap(err, "PubSubClient.Refresh")
 	}
 
-	var g errgroup.Group
+	var g WorkerGroup
 
 	for _, e := range a {
 		e := e
@@ -89,7 +88,7 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 
 			l.Debug("pubsub: refreshing subscription")
 
-			g.Go(func() error {
+			g.Add(func() error {
 				if err := PubSubSubscribe(e.Hub, e.Topic, callbackURL); err != nil {
 					l.WithError(err).Warn("pubsub: couldn't subscribe to topic")
 					return errors.Wrap(err, "PubSubClient.RefreshWorker")
@@ -101,7 +100,7 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 		}
 	}
 
-	return errors.Wrap(g.Wait(), "PubSubClient.Refresh")
+	return errors.Wrap(g.Run(4), "PubSubClient.Refresh")
 }
 
 func (c *PubSubClient) Subscribe(hub, topic string) error {
