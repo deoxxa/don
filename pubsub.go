@@ -77,7 +77,7 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 		callbackURL := c.CallbackURL + "/" + e.ID
 
 		if forceUpdate || e.Remaining(time.Now()) < interval || e.CallbackURL != callbackURL {
-			logrus.WithFields(logrus.Fields{
+			l := logrus.WithFields(logrus.Fields{
 				"id":               e.ID,
 				"hub":              e.Hub,
 				"topic":            e.Topic,
@@ -85,10 +85,18 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 				"new_callback_url": callbackURL,
 				"expires_at":       e.ExpiresAt,
 				"force_update":     forceUpdate,
-			}).Debug("pubsub: refreshing subscription")
+			})
+
+			l.Debug("pubsub: refreshing subscription")
 
 			g.Go(func() error {
-				return errors.Wrap(PubSubSubscribe(e.Hub, e.Topic, callbackURL), "PubSubClient.RefreshWorker")
+				if err := PubSubSubscribe(e.Hub, e.Topic, callbackURL); err != nil {
+					l.WithError(err).Warn("pubsub: couldn't subscribe to topic")
+					return errors.Wrap(err, "PubSubClient.RefreshWorker")
+				}
+
+				l.Debug("pubsub: subscribed successfully")
+				return nil
 			})
 		}
 	}
