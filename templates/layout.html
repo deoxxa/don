@@ -1,15 +1,22 @@
 {{define "layout"}}
   <html>
     <head>
+      <meta charset="utf-8">
+      <meta name="HandheldFriendly" content="True">
+      <meta name="MobileOptimized" content="320">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>{{block "title" .}}DON{{end}}</title>
       <link rel="stylesheet" href="/style.css" />
+      {{template "head_before_close"}}
     </head>
     <body>
       <header>
-        <h1>
-          <a href="/">DON</a>
-        </h1>
+        <a class="title" href="/">DON</a>
       </header>
+
+      <div class="splash">
+        Hi! <a href="https://www.fknsrs.biz/">I'm Conrad</a> and <a href="https://www.fknsrs.biz/blog/don-statusnet-node-part-one-read-protocols.html">I made DON</a>. I'm also <a href="https://www.fknsrs.biz/resume.html">available for hire</a>!
+      </div>
 
       <div class="wrapper">
         {{block "content" .}}???{{end}}

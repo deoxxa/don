@@ -1,3 +1,14 @@
+{{define "title"}}Home - DON{{end}}
+
+{{define "head_before_close"}}
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:site" content="@deoxxa" />
+<meta name="twitter:creator" content="@deoxxa" />
+<meta name="twitter:title" content="Home - DON" />
+<meta name="twitter:description" content="A very basic StatusNet node." />
+<meta name="description" content="A very basic StatusNet node.">
+{{end}}
+
 {{define "content"}}
   <form id="find-feed" method="get" action="/find-feed">
     <label for="user">Find a user anywhere in the fediverse!</label>
@@ -9,7 +20,7 @@
   </form>
 
   <p class="blurb">
-    This is a <em>ridiculously</em> simple, read-only OStatus client.
+    This is a <em>ridiculously</em> simple, read-only StatusNet node.
     Mostly an experiment. <a href="https://www.fknsrs.biz/p/don">Source
     code is available</a>.
   </p>

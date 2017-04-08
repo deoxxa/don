@@ -1,5 +1,12 @@
 {{define "title"}}{{.Feed.Author}} @ DON{{end}}
 
+{{define "head_before_close"}}
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="{{.Feed.Author}} - DON" />
+<meta name="twitter:description" content="{{.Feed.Author}}'s StatusNet feed via DON" />
+<meta name="description" content="{{.Feed.Author}}'s StatusNet feed via DON">
+{{end}}
+
 {{define "content"}}
   {{$feed := .Feed}}
 
