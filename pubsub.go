@@ -211,7 +211,7 @@ func (h *PubSubHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodGet && q.Get("hub.challenge") != "" {
 		if h.OnChallenge != nil {
-			var leaseTime time.Duration
+			leaseTime := time.Hour * 12
 			if n, err := strconv.ParseInt(q.Get("hub.lease_seconds"), 10, 64); err == nil {
 				leaseTime = time.Second * time.Duration(n)
 			}
