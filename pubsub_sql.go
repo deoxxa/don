@@ -59,10 +59,13 @@ func (s *PubSubSQLState) Add(hub, topic, baseURL string) (string, string, bool, 
 		}
 	} else {
 		existed = true
-		callbackURL = baseURL + "/" + id
 
-		if _, err := tx.Exec("update pubsub_state set callback_url = $1, expires_at = NULL where id = $2", callbackURL, id); err != nil {
-			return "", "", false, errors.Wrap(err, "PubSubSQLState.Add")
+		if newCallbackURL := baseURL + "/" + id; newCallbackURL != callbackURL {
+			callbackURL = newCallbackURL
+
+			if _, err := tx.Exec("update pubsub_state set callback_url = $1, expires_at = NULL where id = $2", callbackURL, id); err != nil {
+				return "", "", false, errors.Wrap(err, "PubSubSQLState.Add")
+			}
 		}
 	}
 
