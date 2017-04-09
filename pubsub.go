@@ -80,7 +80,7 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 		}
 		defer l.Unlock()
 
-		m[host] = ratelimit.NewBucket(time.Second*30, 4)
+		m[host] = ratelimit.NewBucket(time.Second*30, 40000)
 
 		return m[host]
 	}
@@ -117,7 +117,7 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 					return errors.Wrap(err, "PubSubClient.RefreshWorker")
 				}
 
-				if dur, skip := getBucket(u.Host).TakeMaxDuration(1, *pubsubRefreshInterval); skip {
+				if dur, ok := getBucket(u.Host).TakeMaxDuration(10000, *pubsubRefreshInterval); !ok {
 					l.Debug("pubsub: skipping renewing for now as we'd have to wait too long")
 					return nil
 				} else if dur > 0 {
