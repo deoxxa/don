@@ -8,6 +8,7 @@ import (
 	"encoding/xml"
 	"html/template"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -38,6 +39,7 @@ var (
 	publicURL             = app.Flag("public_url", "URL to use for callbacks etc.").Envar("PUBLIC_URL").Required().String()
 	logLevel              = app.Flag("log_level", "How much to log.").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "FATAL", "PANIC")
 	pubsubRefreshInterval = app.Flag("pubsub_refresh_interval", "PubSub subscription refresh interval.").Default("15m").Envar("PUBSUB_REFRESH_INTERVAL").Duration()
+	recordDocuments       = app.Flag("record_documents", "Record all XML documents for debugging.").Envar("RECORD_DOCUMENTS").Bool()
 )
 
 func main() {
@@ -97,6 +99,31 @@ func main() {
 	}
 
 	psc := NewPubSubClient(*publicURL+"/pubsub", NewPubSubSQLState(db), func(id string, s *PubSubSubscription, rd io.ReadCloser) {
+		var v AtomFeed
+
+		if *recordDocuments {
+			d, err := ioutil.ReadAll(rd)
+			if err != nil {
+				logrus.WithField("id", id).WithError(err).Debug("pubsub: couldn't read message")
+				return
+			}
+
+			if err := xml.NewDecoder(bytes.NewReader(d)).Decode(&v); err != nil {
+				logrus.WithField("id", id).WithError(err).Debug("pubsub: couldn't parse body")
+				return
+			}
+
+			if _, err := db.Exec("insert into documents (created_at, xml) values ($1, $2)", time.Now(), string(d)); err != nil {
+				logrus.WithField("id", id).WithError(err).Debug("pubsub: couldn't save document")
+				return
+			}
+		} else {
+			if err := xml.NewDecoder(rd).Decode(&v); err != nil {
+				logrus.WithField("id", id).WithError(err).Debug("pubsub: couldn't parse body")
+				return
+			}
+		}
+
 		if s == nil {
 			logrus.WithField("id", id).Debug("pubsub: unsolicited message")
 			return
@@ -107,12 +134,6 @@ func main() {
 			"hub":   s.Hub,
 			"topic": s.Topic,
 		})
-
-		var v AtomFeed
-		if err := xml.NewDecoder(rd).Decode(&v); err != nil {
-			l.WithError(err).Debug("pubsub: couldn't parse body")
-			return
-		}
 
 		if v.Author != nil {
 			if err := savePerson(db, s.Topic, v.Author); err != nil {
