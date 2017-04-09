@@ -62,7 +62,7 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 
 	logrus.WithField("count", len(a)).Debug("pubsub: got subscriptions to refresh")
 
-	var m map[string]*ratelimit.Bucket
+	m := make(map[string]*ratelimit.Bucket)
 	var l sync.RWMutex
 
 	getBucket := func(host string) *ratelimit.Bucket {
