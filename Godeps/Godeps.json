@@ -69,37 +69,13 @@
 			"Rev": "7c570a907cfc69cdc004ad506c6f5e234815b936"
 		},
 		{
+			"ImportPath": "github.com/olebedev/go-duktape",
+			"Rev": "55fa18c4e63070a925cf2090e699d4e6edd80949"
+		},
+		{
 			"ImportPath": "github.com/pkg/errors",
 			"Comment": "v0.7.1-1-ga887431",
 			"Rev": "a887431f7f6ef7687b556dbf718d9f351d4858a0"
-		},
-		{
-			"ImportPath": "github.com/robertkrimen/otto",
-			"Rev": "1861f2408b93febb6dca3e39483fa6fe63d6e70f"
-		},
-		{
-			"ImportPath": "github.com/robertkrimen/otto/ast",
-			"Rev": "1861f2408b93febb6dca3e39483fa6fe63d6e70f"
-		},
-		{
-			"ImportPath": "github.com/robertkrimen/otto/dbg",
-			"Rev": "1861f2408b93febb6dca3e39483fa6fe63d6e70f"
-		},
-		{
-			"ImportPath": "github.com/robertkrimen/otto/file",
-			"Rev": "1861f2408b93febb6dca3e39483fa6fe63d6e70f"
-		},
-		{
-			"ImportPath": "github.com/robertkrimen/otto/parser",
-			"Rev": "1861f2408b93febb6dca3e39483fa6fe63d6e70f"
-		},
-		{
-			"ImportPath": "github.com/robertkrimen/otto/registry",
-			"Rev": "1861f2408b93febb6dca3e39483fa6fe63d6e70f"
-		},
-		{
-			"ImportPath": "github.com/robertkrimen/otto/token",
-			"Rev": "1861f2408b93febb6dca3e39483fa6fe63d6e70f"
 		},
 		{
 			"ImportPath": "github.com/satori/go.uuid",
@@ -145,16 +121,6 @@
 			"ImportPath": "gopkg.in/kyokomi/emoji.v1",
 			"Comment": "v1.5",
 			"Rev": "7e06b236c489543f53868841f188a294e3383eab"
-		},
-		{
-			"ImportPath": "gopkg.in/sourcemap.v1",
-			"Comment": "v1.0.5",
-			"Rev": "6e83acea0053641eff084973fee085f0c193c61a"
-		},
-		{
-			"ImportPath": "gopkg.in/sourcemap.v1/base64vlq",
-			"Comment": "v1.0.5",
-			"Rev": "6e83acea0053641eff084973fee085f0c193c61a"
 		}
 	]
 }

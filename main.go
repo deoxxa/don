@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/GeertJohan/go.rice"
@@ -19,7 +20,7 @@ import (
 	"github.com/jtacoma/uritemplates"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/meatballhat/negroni-logrus"
-	"github.com/robertkrimen/otto"
+	"github.com/olebedev/go-duktape"
 	"github.com/sebest/xff"
 	"github.com/urfave/negroni"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -143,32 +144,37 @@ func main() {
 	// }()
 	//
 
-	baseVM := otto.New()
+	var vm *duktape.Context
+	var vmLock sync.Mutex
 
-	if _, err := baseVM.Run(`Array.prototype.includes = function(e) { return this.indexOf(e) !== -1; };`); err != nil {
-		panic(err)
-	}
+	jsPrelude := `console = { log: function() {} }; module = { exports: null };`
 
-	if _, err := baseVM.Run(`module = { exports: null };`); err != nil {
-		panic(err)
-	}
+	withVM := func(fn func(vm *duktape.Context) error) error {
+		vmLock.Lock()
+		defer vmLock.Unlock()
 
-	rp := strings.NewReplacer("(?=", "(", "(?!", "(")
-	s, err := baseVM.CompileWithSourceMap("entry-server-bundle", rp.Replace(buildBox.MustString("entry-server-bundle.js")), buildBox.MustString("entry-server-bundle.js.map"))
-	if err != nil {
-		panic(err)
-	}
+		if vm == nil {
+			c := duktape.New()
 
-	if _, err := baseVM.Run(s); err != nil {
-		panic(err)
-	}
+			if err := c.PevalString(jsPrelude); err != nil {
+				return err
+			}
 
-	vms := make(chan *otto.Otto, 10)
-	go func() {
-		for {
-			vms <- baseVM.Copy()
+			if err := c.PevalString(buildBox.MustString("entry-server-bundle.js")); err != nil {
+				return err
+			}
+
+			vm = c
 		}
-	}()
+
+		if err := fn(vm); err != nil {
+			vm.Destroy()
+			vm = nil
+			return err
+		}
+
+		return nil
+	}
 
 	rootTemplate := template.New("root")
 
@@ -253,14 +259,26 @@ func main() {
 			return
 		}
 
-		v, err := (<-vms).Call("module.exports", nil, r.URL.String(), initialState)
-		if err != nil {
+		var html string
+		if err := withVM(func(vm *duktape.Context) error {
+			if err := vm.PevalString("module.exports"); err != nil {
+				return err
+			}
+
+			vm.PushString(r.URL.String())
+			vm.PushString(string(d))
+			vm.Call(2)
+			html = vm.SafeToString(-1)
+			vm.Pop()
+
+			return nil
+		}); err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		data := map[string]interface{}{
-			"HTML":     template.HTML(v.String()),
+			"HTML":     template.HTML(html),
 			"JSON":     template.JS(d),
 			"CSSFiles": []string{"/build/vendor-styles.css", "/build/entry-client-styles.css"},
 			"JSFiles":  []string{"/build/vendor-bundle.js", "/build/entry-client-bundle.js"},
