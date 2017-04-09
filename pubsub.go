@@ -127,10 +127,13 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 
 				l.Debug("pubsub: refreshing subscription")
 
-				if err := c.Subscribe(e.Hub, e.Topic); err != nil {
-					l.WithError(err).Warn("pubsub: couldn't subscribe to topic")
-					return errors.Wrap(err, "PubSubClient.RefreshWorker")
-				}
+				// simulate subscription
+				time.Sleep(time.Second * 5)
+
+				// if err := c.Subscribe(e.Hub, e.Topic); err != nil {
+				// 	l.WithError(err).Warn("pubsub: couldn't subscribe to topic")
+				// 	return errors.Wrap(err, "PubSubClient.RefreshWorker")
+				// }
 
 				l.Debug("pubsub: subscribed successfully")
 				return nil
