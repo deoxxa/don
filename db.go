@@ -40,6 +40,14 @@ func savePerson(db *sql.DB, feedURL string, author *AtomAuthor) error {
 	}
 	defer tx.Rollback()
 
+	if err := savePersonTx(tx, feedURL, author); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func savePersonTx(tx *sql.Tx, feedURL string, author *AtomAuthor) error {
 	var name, displayName, email, summary, note string
 	if err := tx.QueryRow("select name, display_name, email, summary, note from people where feed_url = $1", feedURL).Scan(&name, &displayName, &email, &summary, &note); err != nil {
 		if err != sql.ErrNoRows {
@@ -59,7 +67,7 @@ func savePerson(db *sql.DB, feedURL string, author *AtomAuthor) error {
 		}
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 func saveEntry(db *sql.DB, feedURL string, entry *AtomEntry) error {
@@ -69,6 +77,14 @@ func saveEntry(db *sql.DB, feedURL string, entry *AtomEntry) error {
 	}
 	defer tx.Rollback()
 
+	if err := saveEntryTx(tx, feedURL, entry); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func saveEntryTx(tx *sql.Tx, feedURL string, entry *AtomEntry) error {
 	var exists int
 	if err := tx.QueryRow("select count(1) from posts where feed_url = $1 and id = $2", feedURL, entry.ID).Scan(&exists); err != nil {
 		return err
@@ -87,7 +103,7 @@ func saveEntry(db *sql.DB, feedURL string, entry *AtomEntry) error {
 		return err
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 type getPublicTimelineArgs struct {
