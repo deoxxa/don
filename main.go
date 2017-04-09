@@ -1,6 +1,7 @@
 package main // import "fknsrs.biz/p/don"
 
 import (
+	"bytes"
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
@@ -12,7 +13,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/Sirupsen/logrus"
@@ -22,6 +22,7 @@ import (
 	"github.com/meatballhat/negroni-logrus"
 	"github.com/olebedev/go-duktape"
 	"github.com/sebest/xff"
+	"github.com/timewasted/go-accept-headers"
 	"github.com/urfave/negroni"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -204,45 +205,10 @@ func main() {
 	m.PathPrefix("/pubsub").Handler(psc.Handler())
 
 	m.Methods("GET").Path("/").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		rows, err := db.Query("select posts.ROWID, posts.feed_url, posts.raw_entry, people.name, people.display_name, people.email from posts left join people on people.feed_url = posts.feed_url order by posts.created_at desc limit 25")
+		posts, err := getPublicTimeline(db, 0, 25)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
-		}
-		defer rows.Close()
-
-		var posts []UIStatus
-		for rows.Next() {
-			var id, feedURL, rawEntry string
-			var name, displayName, email sql.NullString
-			if err := rows.Scan(&id, &feedURL, &rawEntry, &name, &displayName, &email); err != nil {
-				http.Error(rw, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			var entry AtomEntry
-			if err := json.Unmarshal([]byte(rawEntry), &entry); err != nil {
-				http.Error(rw, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			post := UIStatus{ID: id}
-
-			if name.Valid {
-				post.AuthorAcct = email.String
-				post.AuthorName = name.String
-			}
-
-			if t, err := time.Parse(time.RFC3339, entry.Published); err == nil {
-				post.Time = t
-			}
-
-			if entry.Content != nil {
-				post.ContentHTML = entry.Content.HTML()
-				post.ContentText = entry.Content.Text()
-			}
-
-			posts = append(posts, post)
 		}
 
 		initialState := map[string]interface{}{
@@ -259,38 +225,53 @@ func main() {
 			return
 		}
 
-		var html string
-		if err := withVM(func(vm *duktape.Context) error {
-			if err := vm.PevalString("module.exports"); err != nil {
-				return err
-			}
+		acceptable := accept.Parse(r.Header.Get("accept"))
 
-			vm.PushString(r.URL.String())
-			vm.PushString(string(d))
-			vm.Call(2)
-			html = vm.SafeToString(-1)
-			vm.Pop()
-
-			return nil
-		}); err != nil {
+		ct, err := acceptable.Negotiate("text/html", "application/json")
+		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		data := map[string]interface{}{
-			"HTML":     template.HTML(html),
-			"JSON":     template.JS(d),
-			"CSSFiles": []string{"/build/vendor-styles.css", "/build/entry-client-styles.css"},
-			"JSFiles":  []string{"/build/vendor-bundle.js", "/build/entry-client-bundle.js"},
-			"Meta": map[string]interface{}{
-				"Title":       "Home - DON",
-				"Description": "A very basic StatusNet node. Kind of like Mastodon, but worse.",
-			},
-		}
+		switch ct {
+		case "application/json":
+			rw.Header().Set("content-type", "application/json; charset=utf8")
+			io.Copy(rw, bytes.NewReader(d))
+			return
+		case "text/html", "":
+			var html string
+			if err := withVM(func(vm *duktape.Context) error {
+				if err := vm.PevalString("module.exports"); err != nil {
+					return err
+				}
 
-		rw.Header().Set("content-type", "text/html; charset=utf-8")
-		if err := templateReact.Execute(rw, data); err != nil {
-			panic(err)
+				vm.PushString(r.URL.String())
+				vm.PushString(string(d))
+				vm.Call(2)
+				html = vm.SafeToString(-1)
+				vm.Pop()
+
+				return nil
+			}); err != nil {
+				http.Error(rw, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			data := map[string]interface{}{
+				"HTML":     template.HTML(html),
+				"JSON":     template.JS(d),
+				"CSSFiles": []string{"/build/vendor-styles.css", "/build/entry-client-styles.css"},
+				"JSFiles":  []string{"/build/vendor-bundle.js", "/build/entry-client-bundle.js"},
+				"Meta": map[string]interface{}{
+					"Title":       "Home - DON",
+					"Description": "A very basic StatusNet node. Kind of like Mastodon, but worse.",
+				},
+			}
+
+			rw.Header().Set("content-type", "text/html; charset=utf-8")
+			if err := templateReact.Execute(rw, data); err != nil {
+				panic(err)
+			}
 		}
 	})
 

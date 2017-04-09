@@ -62,3 +62,45 @@ func saveEntry(db *sql.DB, feedURL string, entry *AtomEntry) error {
 
 	return tx.Commit()
 }
+
+func getPublicTimeline(db *sql.DB, offset, limit int) ([]UIStatus, error) {
+	rows, err := db.Query("select posts.ROWID, posts.feed_url, posts.raw_entry, people.name, people.display_name, people.email from posts left join people on people.feed_url = posts.feed_url order by posts.created_at desc limit $1 offset $2", limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []UIStatus
+	for rows.Next() {
+		var id, feedURL, rawEntry string
+		var name, displayName, email sql.NullString
+		if err := rows.Scan(&id, &feedURL, &rawEntry, &name, &displayName, &email); err != nil {
+			return nil, err
+		}
+
+		var entry AtomEntry
+		if err := json.Unmarshal([]byte(rawEntry), &entry); err != nil {
+			return nil, err
+		}
+
+		post := UIStatus{ID: id}
+
+		if name.Valid {
+			post.AuthorAcct = email.String
+			post.AuthorName = name.String
+		}
+
+		if t, err := time.Parse(time.RFC3339, entry.Published); err == nil {
+			post.Time = t
+		}
+
+		if entry.Content != nil {
+			post.ContentHTML = entry.Content.HTML()
+			post.ContentText = entry.Content.Text()
+		}
+
+		posts = append(posts, post)
+	}
+
+	return posts, nil
+}
