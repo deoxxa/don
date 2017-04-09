@@ -87,6 +87,10 @@
 			"Rev": "6c115e0ffa35d6a2e3f7a9e797c9cf07f0da4b9f"
 		},
 		{
+			"ImportPath": "github.com/timewasted/go-accept-headers",
+			"Rev": "c78f304b1b09181c0a2de98d15f5279514413f7b"
+		},
+		{
 			"ImportPath": "github.com/tomnomnom/linkheader",
 			"Comment": "0.1.0-5-g236df73",
 			"Rev": "236df730ed7334edb33cb10ba79407491fb4e147"
