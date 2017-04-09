@@ -87,6 +87,8 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 
 	var g WorkerGroup
 
+	n := 0
+
 	for _, e := range a {
 		e := e
 
@@ -122,6 +124,8 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 				continue
 			}
 
+			n++
+
 			g.Add(func() error {
 				if dur > 0 {
 					l.WithField("duration", dur).Debug("pubsub: waiting so as not to overwhelm the endpoint")
@@ -144,7 +148,7 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 		}
 	}
 
-	return errors.Wrap(g.Run(20), "PubSubClient.Refresh")
+	return errors.Wrap(g.Run(n), "PubSubClient.Refresh")
 }
 
 func (c *PubSubClient) Subscribe(hub, topic string) error {
