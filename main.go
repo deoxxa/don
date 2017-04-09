@@ -19,6 +19,7 @@ import (
 	"github.com/jtacoma/uritemplates"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/meatballhat/negroni-logrus"
+	"github.com/robertkrimen/otto"
 	"github.com/sebest/xff"
 	"github.com/urfave/negroni"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -64,16 +65,18 @@ func main() {
 	_, _ = rice.FindBox("public")
 	_, _ = rice.FindBox("templates")
 	_, _ = rice.FindBox("migrations")
+	_, _ = rice.FindBox("build")
 
 	cfg := rice.Config{LocateOrder: []rice.LocateMethod{
 		rice.LocateWorkingDirectory,
 		rice.LocateFS,
-		rice.LocateEmbedded,
+		rice.LocateAppended,
 	}}
 
 	publicBox := cfg.MustFindBox("public")
 	templateBox := cfg.MustFindBox("templates")
 	migrationBox := cfg.MustFindBox("migrations")
+	buildBox := cfg.MustFindBox("build")
 
 	db, err := sql.Open("sqlite3", *database)
 	if err != nil {
@@ -83,63 +86,6 @@ func main() {
 
 	if err := migrate(db, migrationBox); err != nil {
 		panic(err)
-	}
-
-	savePerson := func(feedURL string, author *AtomAuthor) error {
-		tx, err := db.Begin()
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback()
-
-		var name, displayName, email, summary, note string
-		if err := tx.QueryRow("select name, display_name, email, summary, note from people where feed_url = $1", feedURL).Scan(&name, &displayName, &email, &summary, &note); err != nil {
-			if err != sql.ErrNoRows {
-				return err
-			}
-
-			if _, err := tx.Exec("insert into people (feed_url, first_seen, name, display_name, email, summary, note) values ($1, $2, $3, $4, $5, $6, $7)", feedURL, time.Now(), author.Name, author.DisplayName, author.Email, author.Summary, author.Note); err != nil {
-				return err
-			}
-		} else {
-			if name == author.Name && displayName == author.DisplayName && email == author.Email && summary == author.Summary && note == author.Note {
-				return nil
-			}
-
-			if _, err := tx.Exec("update people set name = $1, display_name = $2, email = $3, summary = $4, note = $5 where feed_url = $6", author.Name, author.DisplayName, author.Email, author.Summary, author.Note, feedURL); err != nil {
-				return err
-			}
-		}
-
-		return tx.Commit()
-	}
-
-	saveEntry := func(feedURL string, entry *AtomEntry) error {
-		tx, err := db.Begin()
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback()
-
-		var exists int
-		if err := tx.QueryRow("select count(1) from posts where feed_url = $1 and id = $2", feedURL, entry.ID).Scan(&exists); err != nil {
-			return err
-		}
-
-		if exists > 0 {
-			return nil
-		}
-
-		d, err := json.Marshal(entry)
-		if err != nil {
-			return err
-		}
-
-		if _, err := tx.Exec("insert into posts (feed_url, id, created_at, raw_entry) values ($1, $2, $3, $4)", feedURL, entry.ID, entry.Published, string(d)); err != nil {
-			return err
-		}
-
-		return tx.Commit()
 	}
 
 	psc := NewPubSubClient(*publicURL+"/pubsub", NewPubSubSQLState(db), func(id string, s *PubSubSubscription, rd io.ReadCloser) {
@@ -154,25 +100,21 @@ func main() {
 			"topic": s.Topic,
 		})
 
-		l.Debug("pubsub: received message")
-
 		var v AtomFeed
 		if err := xml.NewDecoder(rd).Decode(&v); err != nil {
 			l.WithError(err).Debug("pubsub: couldn't parse body")
 			return
 		}
 
-		l.Debug("pubsub: parsed message")
-
 		if v.Author != nil {
-			if err := savePerson(s.Topic, v.Author); err != nil {
+			if err := savePerson(db, s.Topic, v.Author); err != nil {
 				l.WithError(err).Debug("pubsub: couldn't save author")
 				return
 			}
 		}
 
 		for _, e := range v.Entry {
-			if err := saveEntry(s.Topic, &e); err != nil {
+			if err := saveEntry(db, s.Topic, &e); err != nil {
 				l.WithError(err).Debug("pubsub: couldn't save entry")
 			} else {
 				l.Debug("pubsub: saved entry")
@@ -180,18 +122,51 @@ func main() {
 		}
 	})
 
+	//
+	// ----
+	// disabled until there's rate limiting in place
+	// ----
+	//
+	// go func() {
+	// 	time.Sleep(time.Second * 2)
+	//
+	// 	for {
+	// 		logrus.Debug("refreshing pubsub subscriptions")
+	// 		if err := psc.Refresh(false, *pubsubRefreshInterval); err != nil {
+	// 			logrus.WithError(err).Error("couldn't refresh pubsub subscriptions")
+	// 		} else {
+	// 			logrus.Debug("refreshed pubsub subscriptions")
+	// 		}
+	//
+	// 		time.Sleep(*pubsubRefreshInterval)
+	// 	}
+	// }()
+	//
+
+	baseVM := otto.New()
+
+	if _, err := baseVM.Run(`Array.prototype.includes = function(e) { return this.indexOf(e) !== -1; };`); err != nil {
+		panic(err)
+	}
+
+	if _, err := baseVM.Run(`module = { exports: null };`); err != nil {
+		panic(err)
+	}
+
+	rp := strings.NewReplacer("(?=", "(", "(?!", "(")
+	s, err := baseVM.CompileWithSourceMap("entry-server-bundle", rp.Replace(buildBox.MustString("entry-server-bundle.js")), buildBox.MustString("entry-server-bundle.js.map"))
+	if err != nil {
+		panic(err)
+	}
+
+	if _, err := baseVM.Run(s); err != nil {
+		panic(err)
+	}
+
+	vms := make(chan *otto.Otto, 10)
 	go func() {
-		time.Sleep(time.Second * 2)
-
 		for {
-			logrus.Debug("refreshing pubsub subscriptions")
-			if err := psc.Refresh(false, *pubsubRefreshInterval); err != nil {
-				logrus.WithError(err).Error("couldn't refresh pubsub subscriptions")
-			} else {
-				logrus.Debug("refreshed pubsub subscriptions")
-			}
-
-			time.Sleep(*pubsubRefreshInterval)
+			vms <- baseVM.Copy()
 		}
 	}()
 
@@ -215,26 +190,26 @@ func main() {
 		panic(err)
 	}
 
-	templateHome := template.Must(template.Must(rootTemplate.Clone()).Parse(templateBox.MustString("page_home.html")))
 	templateFeed := template.Must(template.Must(rootTemplate.Clone()).Parse(templateBox.MustString("page_feed.html")))
+	templateReact := template.Must(template.Must(rootTemplate.Clone()).Parse(templateBox.MustString("page_react.html")))
 
 	m := mux.NewRouter()
 
 	m.PathPrefix("/pubsub").Handler(psc.Handler())
 
 	m.Methods("GET").Path("/").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		rows, err := db.Query("select posts.feed_url, posts.raw_entry, people.name, people.display_name, people.email from posts left join people on people.feed_url = posts.feed_url order by posts.created_at desc limit 25")
+		rows, err := db.Query("select posts.ROWID, posts.feed_url, posts.raw_entry, people.name, people.display_name, people.email from posts left join people on people.feed_url = posts.feed_url order by posts.created_at desc limit 25")
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		defer rows.Close()
 
-		var posts []AtomFeed
+		var posts []UIStatus
 		for rows.Next() {
-			var feedURL, rawEntry string
+			var id, feedURL, rawEntry string
 			var name, displayName, email sql.NullString
-			if err := rows.Scan(&feedURL, &rawEntry, &name, &displayName, &email); err != nil {
+			if err := rows.Scan(&id, &feedURL, &rawEntry, &name, &displayName, &email); err != nil {
 				http.Error(rw, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -245,26 +220,59 @@ func main() {
 				return
 			}
 
-			post := AtomFeed{
-				Entry: []AtomEntry{entry},
-				Link:  []AtomLink{AtomLink{Rel: "self", Href: feedURL}},
-			}
+			post := UIStatus{ID: id}
 
 			if name.Valid {
-				post.Author = &AtomAuthor{
-					Name:        name.String,
-					DisplayName: displayName.String,
-					Email:       email.String,
-				}
+				post.AuthorAcct = email.String
+				post.AuthorName = name.String
+			}
+
+			if t, err := time.Parse(time.RFC3339, entry.Published); err == nil {
+				post.Time = t
+			}
+
+			if entry.Content != nil {
+				post.ContentHTML = entry.Content.HTML()
+				post.ContentText = entry.Content.Text()
 			}
 
 			posts = append(posts, post)
 		}
 
-		rw.Header().Set("content-type", "text/html")
-		if err := templateHome.Execute(rw, map[string]interface{}{"Posts": posts}); err != nil {
+		initialState := map[string]interface{}{
+			"publicTimeline": map[string]interface{}{
+				"loading": false,
+				"posts":   toPrimitive(posts),
+				"error":   nil,
+			},
+		}
+
+		d, err := json.Marshal(initialState)
+		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
+		}
+
+		v, err := (<-vms).Call("module.exports", nil, r.URL.String(), initialState)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		data := map[string]interface{}{
+			"HTML":     template.HTML(v.String()),
+			"JSON":     template.JS(d),
+			"CSSFiles": []string{"/build/vendor-styles.css", "/build/entry-client-styles.css"},
+			"JSFiles":  []string{"/build/vendor-bundle.js", "/build/entry-client-bundle.js"},
+			"Meta": map[string]interface{}{
+				"Title":       "Home - DON",
+				"Description": "A very basic StatusNet node. Kind of like Mastodon, but worse.",
+			},
+		}
+
+		rw.Header().Set("content-type", "text/html")
+		if err := templateReact.Execute(rw, data); err != nil {
+			panic(err)
 		}
 	})
 
@@ -292,14 +300,14 @@ func main() {
 		rw.WriteHeader(http.StatusOK)
 
 		if feed.Author != nil {
-			if err := savePerson(r.URL.Query().Get("url"), feed.Author); err != nil {
+			if err := savePerson(db, r.URL.Query().Get("url"), feed.Author); err != nil {
 				http.Error(rw, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
 
 		for _, e := range feed.Entry {
-			if err := saveEntry(r.URL.Query().Get("url"), &e); err != nil {
+			if err := saveEntry(db, r.URL.Query().Get("url"), &e); err != nil {
 				http.Error(rw, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -380,6 +388,8 @@ func main() {
 		rw.Header().Set("location", "/show-feed?"+url.Values{"url": []string{feedLink.Href}}.Encode())
 		rw.WriteHeader(http.StatusSeeOther)
 	})
+
+	m.PathPrefix("/build").Handler(http.StripPrefix("/build", http.FileServer(buildBox.HTTPBox())))
 
 	m.NotFoundHandler = http.FileServer(publicBox.HTTPBox())
 

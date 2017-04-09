@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/xml"
-	"html/template"
 	"net/http"
 
 	"github.com/jaytaylor/html2text"
@@ -104,6 +103,8 @@ type AtomEntry struct {
 	Object     *AtomEntry `xml:"http://activitystrea.ms/spec/1.0/ object" json:"object,omitempty"`
 
 	InReplyTo *AtomLink `xml:"http://purl.org/syndication/thread/1.0 in-reply-to" json:"inReplyTo,omitempty"`
+
+	InnerXML string `xml:",innerxml" json:"-"`
 }
 
 func (e *AtomEntry) GetLinks(rel string) []AtomLink {
@@ -146,19 +147,19 @@ func (c *AtomContent) Text() string {
 	return c.Body
 }
 
-func (c *AtomContent) HTML() template.HTML {
+func (c *AtomContent) HTML() string {
 	if c == nil {
 		return ""
 	}
 
 	if c.Type != "html" {
-		return template.HTML(sanitize.HTML(emoji.Sprint(c.Body)))
+		return sanitize.HTML(emoji.Sprint(c.Body))
 	}
 
 	t, err := sanitize.HTMLAllowing(emoji.Sprint(c.Body))
 	if err != nil {
-		return template.HTML(sanitize.HTML(emoji.Sprint(c.Body)))
+		return sanitize.HTML(emoji.Sprint(c.Body))
 	}
 
-	return template.HTML(t)
+	return t
 }
