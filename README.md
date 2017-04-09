@@ -9,3 +9,14 @@ that end, I'm embarking on writing this - tentatively named don.
 i'm not sure what it'll end up being. right now it's ~~just an experiment in
 plugging different protocols together~~ a rudimentary read-only client. maybe
 it'll be a full node implementation, but maybe not.
+
+## build instructions
+
+These assume that you have Go already running.
+
+```shell
+go get fknsrs.biz/p/don
+go build fknsrs.biz/p/don
+go install fknsrs.biz/p/don
+don --help
+```
