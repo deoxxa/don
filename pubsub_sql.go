@@ -2,19 +2,26 @@ package main
 
 import (
 	"database/sql"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
 )
 
-type PubSubSQLState struct{ DB *sql.DB }
+type PubSubSQLState struct {
+	m  sync.Mutex
+	DB *sql.DB
+}
 
 func NewPubSubSQLState(db *sql.DB) *PubSubSQLState {
 	return &PubSubSQLState{DB: db}
 }
 
 func (s *PubSubSQLState) All() ([]PubSubSubscription, error) {
+	s.m.Lock()
+	defer s.m.Unlock()
+
 	var a []PubSubSubscription
 
 	rows, err := s.DB.Query("select id, hub, topic, callback_url, created_at, updated_at, expires_at from pubsub_state")
@@ -46,6 +53,9 @@ func (s *PubSubSQLState) All() ([]PubSubSubscription, error) {
 }
 
 func (s *PubSubSQLState) Add(hub, topic, baseURL string) (*PubSubSubscription, string, error) {
+	s.m.Lock()
+	defer s.m.Unlock()
+
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return nil, "", errors.Wrap(err, "PubSubSQLState.Add")
@@ -97,6 +107,9 @@ func (s *PubSubSQLState) Add(hub, topic, baseURL string) (*PubSubSubscription, s
 }
 
 func (s *PubSubSQLState) Get(hub, topic string) (*PubSubSubscription, error) {
+	s.m.Lock()
+	defer s.m.Unlock()
+
 	var v PubSubSubscription
 
 	if err := s.DB.QueryRow("select id, hub, topic, callback_url, created_at, updated_at, expires_at from pubsub_state where hub = $1 and topic = $2", hub, topic).Scan(&v.ID, &v.Hub, &v.Topic, &v.CallbackURL, &v.CreatedAt, &v.ExpiresAt); err != nil {
@@ -111,6 +124,9 @@ func (s *PubSubSQLState) Get(hub, topic string) (*PubSubSubscription, error) {
 }
 
 func (s *PubSubSQLState) GetByID(id string) (*PubSubSubscription, error) {
+	s.m.Lock()
+	defer s.m.Unlock()
+
 	var v PubSubSubscription
 
 	if err := s.DB.QueryRow("select id, hub, topic, callback_url, created_at, updated_at, expires_at from pubsub_state where id = $1", id).Scan(&v.ID, &v.Hub, &v.Topic, &v.CallbackURL, &v.CreatedAt, &v.UpdatedAt, &v.ExpiresAt); err != nil {
@@ -125,6 +141,9 @@ func (s *PubSubSQLState) GetByID(id string) (*PubSubSubscription, error) {
 }
 
 func (s *PubSubSQLState) Set(hub, topic string, updatedAt, expiresAt time.Time) error {
+	s.m.Lock()
+	defer s.m.Unlock()
+
 	if _, err := s.DB.Exec("update pubsub_state set updated_at = $1, expires_at = $2 where hub = $3 and topic = $4", updatedAt, expiresAt, hub, topic); err != nil {
 		return errors.Wrap(err, "PubSubSQLState.Set")
 	}
@@ -133,6 +152,9 @@ func (s *PubSubSQLState) Set(hub, topic string, updatedAt, expiresAt time.Time) 
 }
 
 func (s *PubSubSQLState) Del(hub, topic string) error {
+	s.m.Lock()
+	defer s.m.Unlock()
+
 	if _, err := s.DB.Exec("delete from pubsub_state where hub = $1 and topic = $2", hub, topic); err != nil {
 		return errors.Wrap(err, "PubSubSQLState.Del")
 	}
