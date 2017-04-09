@@ -1,0 +1,43 @@
+.pre {
+  color: #555;
+}
+
+.form {
+  margin: 1em auto;
+  text-align: center;
+  flex-direction: row;
+}
+
+.form > div {
+  display: flex;
+}
+
+.form label {
+  display: block;
+  margin-bottom: 1em;
+}
+
+.form input {
+  font-size: 1em;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, .2);
+}
+
+.form input[type=text] {
+  flex: 1;
+  border-radius: 6px 0 0 6px;
+  text-align: center;
+}
+
+.form input[type=submit] {
+  border-radius: 0 6px 6px 0;
+  padding: .5em 1.2em;
+  cursor: pointer;
+  border-left: none;
+}
+
+#userInput {}
+
+.blurb {
+  margin: auto;
+}

@@ -1,0 +1,19 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="MobileOptimized" content="320">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Meta.Title}}</title>
+    {{range $s := .CSSFiles}}<link rel="stylesheet" href="{{$s}}" />{{end}}
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="{{.Meta.Title}}" />
+    <meta name="twitter:description" content="{{.Meta.Description}}" />
+    <meta name="description" content="{{.Meta.Description}}" />
+  </head>
+  <body>
+    <div id="react-root">{{.HTML}}</div>
+    {{range $s := .JSFiles}}<script src="{{$s}}"></script>{{end}}
+    <script type="application/json" id="redux-state">{{.JSON}}</script>
+  </body>
+</html>

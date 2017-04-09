@@ -4,16 +4,13 @@ don: *.go migrations.rice-box.go public.rice-box.go templates.rice-box.go
 don_linux-amd64: *.go public.rice-box.go
 	docker run --rm -it -v $(shell pwd):/go/src/fknsrs.biz/p/don golang:1.8 bash -c 'cd /go/src/fknsrs.biz/p/don && go build -o don_linux-amd64'
 
-migrations.rice-box.go: migrations/*
-	rice embed-go
+build/entry-server-bundle.js: $(shell find client/src -type f) client/webpack.* client/yarn.lock client/package.json
+	cd client && yarn run build-server
 
-public.rice-box.go: public/*
-	rice embed-go
-
-templates.rice-box.go: templates/*
-	rice embed-go
+build/entry-client-bundle.js: $(shell find client/src -type f) client/webpack.* client/yarn.lock client/package.json
+	cd client && yarn run build-client
 
 .PHONY: clean
 
 clean:
-	rm -f don don_linux-amd64
+	rm -rvf don don_linux-amd64 build/*
