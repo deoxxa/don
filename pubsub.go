@@ -241,17 +241,19 @@ func (c *PubSubClient) Handler() *PubSubHandler {
 }
 
 func PubSubAlter(hub, topic, callbackURL, mode string) error {
-	res, err := http.PostForm(hub, url.Values{
+	f := url.Values{
 		"hub.callback":      []string{callbackURL},
 		"hub.mode":          []string{mode},
 		"hub.topic":         []string{topic},
 		"hub.verify":        []string{"async"},
 		"hub.lease_seconds": []string{"604800"},
-	})
+	}
 
+	res, err := http.PostForm(hub, f)
 	if err != nil {
 		return errors.Wrap(err, "PubSubAlter")
 	}
+	defer res.Body.Close()
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		return errors.Errorf("PubSubAlter: invalid status code; expected 2xx but got %d", res.StatusCode)
