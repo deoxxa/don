@@ -37,6 +37,10 @@
 			"Rev": "a5fe2436ffcb3236e175e5149162b41cd28bd27d"
 		},
 		{
+			"ImportPath": "github.com/dyninc/qstring",
+			"Rev": "ab5840a88e818d51076cb7e9708e7cb7ff125a27"
+		},
+		{
 			"ImportPath": "github.com/gorilla/mux",
 			"Comment": "v1.3.0-5-g599cba5",
 			"Rev": "599cba5e7b6137d46ddf58fb1765f5d928e69604"
@@ -94,6 +98,14 @@
 			"ImportPath": "github.com/tomnomnom/linkheader",
 			"Comment": "0.1.0-5-g236df73",
 			"Rev": "236df730ed7334edb33cb10ba79407491fb4e147"
+		},
+		{
+			"ImportPath": "github.com/umisama/go-sqlbuilder",
+			"Rev": "ea9e7623ab478c523372419b6c9c9f615bfb8a59"
+		},
+		{
+			"ImportPath": "github.com/umisama/go-sqlbuilder/dialects",
+			"Rev": "ea9e7623ab478c523372419b6c9c9f615bfb8a59"
 		},
 		{
 			"ImportPath": "github.com/urfave/negroni",

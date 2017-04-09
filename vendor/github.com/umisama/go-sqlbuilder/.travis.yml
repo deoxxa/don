@@ -1,0 +1,22 @@
+language: go
+
+go:
+  - 1.4
+  - tip
+
+addons:
+  postgresql: "9.3"
+
+before_install:
+  - go get github.com/axw/gocov/gocov
+  - go get github.com/mattn/goveralls
+  - go get golang.org/x/tools/cmd/cover
+
+before_script:
+  - mysql -e 'create database go_sqlbuilder_test1;'
+  - mysql -e 'create database go_sqlbuilder_test2;'
+  - psql -c 'create database go_sqlbuilder_test' -U postgres
+
+script:
+  - $HOME/gopath/bin/goveralls -repotoken IgwKyLgyhaPzKKNdryx4T3swQIiqfO1Rb
+  - go test -v ./integration_test
