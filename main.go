@@ -288,7 +288,7 @@ func main() {
 			},
 		}
 
-		rw.Header().Set("content-type", "text/html")
+		rw.Header().Set("content-type", "text/html; charset=utf-8")
 		if err := templateReact.Execute(rw, data); err != nil {
 			panic(err)
 		}
@@ -314,7 +314,7 @@ func main() {
 			}
 		}
 
-		rw.Header().Set("content-type", "text/html")
+		rw.Header().Set("content-type", "text/html; charset=utf8")
 		rw.WriteHeader(http.StatusOK)
 
 		if feed.Author != nil {
