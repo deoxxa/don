@@ -99,7 +99,7 @@ func saveEntryTx(tx *sql.Tx, feedURL string, entry *AtomEntry) error {
 		return err
 	}
 
-	if _, err := tx.Exec("insert into posts (feed_url, id, created_at, raw_entry) values ($1, $2, $3, $4)", feedURL, entry.ID, entry.Published, string(d)); err != nil {
+	if _, err := tx.Exec("insert into posts (feed_url, id, created_at, raw_entry, xml_entry) values ($1, $2, $3, $4, $5)", feedURL, entry.ID, entry.Published, string(d), entry.InnerXML); err != nil {
 		return err
 	}
 
