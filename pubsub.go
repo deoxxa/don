@@ -80,7 +80,7 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 		}
 		defer l.Unlock()
 
-		m[host] = ratelimit.NewBucket(time.Second*30, 40000)
+		m[host] = ratelimit.NewBucket(time.Second*30, 4)
 
 		return m[host]
 	}
@@ -110,17 +110,20 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 		}
 
 		if forceUpdate || e.ExpiresAt.Sub(time.Now()) < interval || e.CallbackURL != callbackURL {
-			g.Add(func() error {
-				u, err := url.Parse(e.Hub)
-				if err != nil {
-					l.WithError(err).Warn("pubsub: couldn't parse hub url")
-					return errors.Wrap(err, "PubSubClient.RefreshWorker")
-				}
+			u, err := url.Parse(e.Hub)
+			if err != nil {
+				l.WithError(err).Warn("pubsub: couldn't parse hub url")
+				return errors.Wrap(err, "PubSubClient.RefreshWorker")
+			}
 
-				if dur, ok := getBucket(u.Host).TakeMaxDuration(10000, *pubsubRefreshInterval); !ok {
-					l.Debug("pubsub: skipping renewing for now as we'd have to wait too long")
-					return nil
-				} else if dur > 0 {
+			dur, ok := getBucket(u.Host).TakeMaxDuration(1, *pubsubRefreshInterval)
+			if !ok {
+				l.Debug("pubsub: skipping renewing for now as we'd have to wait too long")
+				continue
+			}
+
+			g.Add(func() error {
+				if dur > 0 {
 					l.WithField("duration", dur).Debug("pubsub: waiting so as not to overwhelm the endpoint")
 					time.Sleep(dur)
 				}
@@ -141,7 +144,7 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 		}
 	}
 
-	return errors.Wrap(g.Run(4), "PubSubClient.Refresh")
+	return errors.Wrap(g.Run(20), "PubSubClient.Refresh")
 }
 
 func (c *PubSubClient) Subscribe(hub, topic string) error {
