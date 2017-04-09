@@ -6,9 +6,11 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/juju/ratelimit"
 	"github.com/pkg/errors"
 	"github.com/tomnomnom/linkheader"
 )
@@ -22,27 +24,17 @@ type PubSubSubscription struct {
 	Hub         string
 	Topic       string
 	CallbackURL string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 	ExpiresAt   *time.Time
-}
-
-func (s *PubSubSubscription) Remaining(t time.Time) time.Duration {
-	if s.ExpiresAt == nil {
-		return 0
-	}
-
-	if s.ExpiresAt.Before(t) {
-		return 0
-	}
-
-	return s.ExpiresAt.Sub(t)
 }
 
 type PubSubState interface {
 	All() (subscriptions []PubSubSubscription, err error)
-	Add(hub, topic, baseURL string) (id, callbackURL string, existed bool, err error)
+	Add(hub, topic, baseURL string) (subscription *PubSubSubscription, oldCallbackURL string, err error)
 	Get(hub, topic string) (subscription *PubSubSubscription, err error)
 	GetByID(id string) (subscription *PubSubSubscription, err error)
-	Set(hub, topic string, expiresAt time.Time) (err error)
+	Set(hub, topic string, updatedAt, expiresAt time.Time) (err error)
 	Del(hub, topic string) (err error)
 }
 
@@ -68,6 +60,31 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 		return errors.Wrap(err, "PubSubClient.Refresh")
 	}
 
+	logrus.WithField("count", len(a)).Debug("pubsub: got subscriptions to refresh")
+
+	var m map[string]*ratelimit.Bucket
+	var l sync.RWMutex
+
+	getBucket := func(host string) *ratelimit.Bucket {
+		l.RLock()
+		if b, ok := m[host]; ok {
+			l.RUnlock()
+			return b
+		}
+		l.RUnlock()
+
+		l.Lock()
+		if b, ok := m[host]; ok {
+			l.Unlock()
+			return b
+		}
+		defer l.Unlock()
+
+		m[host] = ratelimit.NewBucket(time.Second*30, 4)
+
+		return m[host]
+	}
+
 	var g WorkerGroup
 
 	for _, e := range a {
@@ -75,21 +92,42 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 
 		callbackURL := c.CallbackURL + "/" + e.ID
 
-		if forceUpdate || e.Remaining(time.Now()) < interval || e.CallbackURL != callbackURL {
-			l := logrus.WithFields(logrus.Fields{
-				"id":               e.ID,
-				"hub":              e.Hub,
-				"topic":            e.Topic,
-				"callback_url":     e.CallbackURL,
-				"new_callback_url": callbackURL,
-				"expires_at":       e.ExpiresAt,
-				"force_update":     forceUpdate,
-			})
+		l := logrus.WithFields(logrus.Fields{
+			"id":               e.ID,
+			"hub":              e.Hub,
+			"topic":            e.Topic,
+			"callback_url":     e.CallbackURL,
+			"new_callback_url": callbackURL,
+			"created_at":       e.CreatedAt,
+			"updated_at":       e.UpdatedAt,
+			"expires_at":       e.ExpiresAt,
+			"force_update":     forceUpdate,
+		})
 
+		if e.ExpiresAt == nil {
+			l.Debug("pubsub: not refreshing subscription which has never been verified")
+			continue
+		}
+
+		if forceUpdate || e.ExpiresAt.Sub(time.Now()) < interval || e.CallbackURL != callbackURL {
 			l.Debug("pubsub: refreshing subscription")
 
 			g.Add(func() error {
-				if err := PubSubSubscribe(e.Hub, e.Topic, callbackURL); err != nil {
+				u, err := url.Parse(e.Hub)
+				if err != nil {
+					l.WithError(err).Warn("pubsub: couldn't parse hub url")
+					return errors.Wrap(err, "PubSubClient.RefreshWorker")
+				}
+
+				if dur, skip := getBucket(u.Host).TakeMaxDuration(1, *pubsubRefreshInterval); skip {
+					l.Debug("pubsub: skipping renewing for now as we'd have to wait too long")
+					return nil
+				} else if dur > 0 {
+					l.WithField("duration", dur).Debug("pubsub: waiting so as not to overwhelm the endpoint")
+					time.Sleep(dur)
+				}
+
+				if err := c.Subscribe(e.Hub, e.Topic); err != nil {
 					l.WithError(err).Warn("pubsub: couldn't subscribe to topic")
 					return errors.Wrap(err, "PubSubClient.RefreshWorker")
 				}
@@ -104,13 +142,21 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 }
 
 func (c *PubSubClient) Subscribe(hub, topic string) error {
-	_, callbackURL, existed, err := c.State.Add(hub, topic, c.CallbackURL)
+	logrus.WithFields(logrus.Fields{"hub": hub, "topic": topic}).Debug("pubsub: subscribing")
+
+	s, oldCallbackURL, err := c.State.Add(hub, topic, c.CallbackURL)
 	if err != nil {
 		return errors.Wrap(err, "PubSubClient.Subscribe")
 	}
 
-	if !existed {
-		if err := PubSubSubscribe(hub, topic, callbackURL); err != nil {
+	if oldCallbackURL != s.CallbackURL {
+		if oldCallbackURL != "" {
+			if err := PubSubUnsubscribe(hub, topic, oldCallbackURL); err != nil {
+				return errors.Wrap(err, "PubSubClient.Subscribe")
+			}
+		}
+
+		if err := PubSubSubscribe(hub, topic, s.CallbackURL); err != nil {
 			return errors.Wrap(err, "PubSubClient.Subscribe")
 		}
 	}
@@ -119,6 +165,8 @@ func (c *PubSubClient) Subscribe(hub, topic string) error {
 }
 
 func (c *PubSubClient) Unsubscribe(hub, topic string) error {
+	logrus.WithFields(logrus.Fields{"hub": hub, "topic": topic}).Debug("pubsub: unsubscribing")
+
 	s, err := c.State.Get(hub, topic)
 	if err != nil {
 		return errors.Wrap(err, "PubSubClient.Unsubscribe")
@@ -140,35 +188,42 @@ func (c *PubSubClient) Unsubscribe(hub, topic string) error {
 func (c *PubSubClient) Handler() *PubSubHandler {
 	return &PubSubHandler{
 		OnChallenge: func(id, topic, mode string, leaseTime time.Duration) error {
-			logrus.WithFields(logrus.Fields{
+			l := logrus.WithFields(logrus.Fields{
 				"id":         id,
 				"topic":      topic,
 				"mode":       mode,
 				"lease_time": leaseTime,
-			}).Debug("pubsub: received challenge")
+			})
+
+			l.Debug("pubsub: received challenge")
 
 			s, err := c.State.GetByID(id)
 			if err != nil {
+				l.WithError(err).Warn("pubsub: error fetching subscription during challenge")
 				return err
 			}
 
 			if s == nil {
+				l.WithError(err).Warn("pubsub: subscription not found during challenge")
 				return errors.Errorf("PubSubClient.Handler: subscription not found")
 			}
 
-			return errors.Wrap(c.State.Set(s.Hub, s.Topic, time.Now().Add(leaseTime)), "PubSubClient.Handler")
+			return errors.Wrap(c.State.Set(s.Hub, s.Topic, time.Now(), time.Now().Add(leaseTime)), "PubSubClient.Handler")
 		},
 		OnMessage: func(id, topic string, rd io.ReadCloser) {
-			logrus.WithFields(logrus.Fields{
+			l := logrus.WithFields(logrus.Fields{
 				"id":    id,
 				"topic": topic,
-			}).Debug("pubsub: received message")
+			})
+
+			l.Debug("pubsub: received message")
 
 			defer rd.Close()
 
 			if c.OnMessage != nil {
 				s, err := c.State.GetByID(id)
 				if err != nil {
+					l.WithError(err).Warn("pubsub: error fetching subscription during reception")
 					return
 				}
 

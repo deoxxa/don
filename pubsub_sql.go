@@ -17,7 +17,7 @@ func NewPubSubSQLState(db *sql.DB) *PubSubSQLState {
 func (s *PubSubSQLState) All() ([]PubSubSubscription, error) {
 	var a []PubSubSubscription
 
-	rows, err := s.DB.Query("select id, hub, topic, callback_url, expires_at from pubsub_state")
+	rows, err := s.DB.Query("select id, hub, topic, callback_url, created_at, updated_at, expires_at from pubsub_state")
 	if err != nil {
 		return nil, errors.Wrap(err, "PubSubSQLState.All")
 	}
@@ -25,61 +25,81 @@ func (s *PubSubSQLState) All() ([]PubSubSubscription, error) {
 
 	for rows.Next() {
 		var id, hub, topic, callbackURL string
+		var createdAt, updatedAt time.Time
 		var expiresAt *time.Time
-		if err := rows.Scan(&id, &hub, &topic, &callbackURL, &expiresAt); err != nil {
+		if err := rows.Scan(&id, &hub, &topic, &callbackURL, &createdAt, &updatedAt, &expiresAt); err != nil {
 			return nil, errors.Wrap(err, "PubSubSQLState.All")
 		}
 
-		a = append(a, PubSubSubscription{ID: id, Hub: hub, Topic: topic, CallbackURL: callbackURL, ExpiresAt: expiresAt})
+		a = append(a, PubSubSubscription{
+			ID:          id,
+			Hub:         hub,
+			Topic:       topic,
+			CallbackURL: callbackURL,
+			CreatedAt:   createdAt,
+			UpdatedAt:   updatedAt,
+			ExpiresAt:   expiresAt,
+		})
 	}
 
 	return a, nil
 }
 
-func (s *PubSubSQLState) Add(hub, topic, baseURL string) (string, string, bool, error) {
+func (s *PubSubSQLState) Add(hub, topic, baseURL string) (*PubSubSubscription, string, error) {
 	tx, err := s.DB.Begin()
 	if err != nil {
-		return "", "", false, errors.Wrap(err, "PubSubSQLState.Add")
+		return nil, "", errors.Wrap(err, "PubSubSQLState.Add")
 	}
 	defer tx.Rollback()
 
-	existed := false
-
-	var id, callbackURL string
-	if err := tx.QueryRow("select id, callback_url from pubsub_state where hub = $1 and topic = $2", hub, topic).Scan(&id, &callbackURL); err != nil {
+	var createdAt, updatedAt time.Time
+	var expiresAt *time.Time
+	var id, callbackURL, oldCallbackURL string
+	if err := tx.QueryRow("select id, callback_url, created_at, updated_at, expires_at from pubsub_state where hub = $1 and topic = $2", hub, topic).Scan(&id, &oldCallbackURL, &createdAt, &updatedAt, &expiresAt); err != nil {
 		if err != sql.ErrNoRows {
-			return "", "", false, errors.Wrap(err, "PubSubSQLState.Add")
+			return nil, "", errors.Wrap(err, "PubSubSQLState.Add")
 		}
 
 		id = uuid.NewV4().String()
+		createdAt = time.Now()
+		updatedAt = createdAt
 		callbackURL = baseURL + "/" + id
 
-		if _, err := tx.Exec("insert into pubsub_state (id, hub, topic, callback_url) values ($1, $2, $3, $4)", id, hub, topic, callbackURL); err != nil {
-			return "", "", false, errors.Wrap(err, "PubSubSQLState.Add")
+		if _, err := tx.Exec("insert into pubsub_state (id, hub, topic, callback_url, created_at, updated_at) values ($1, $2, $3, $4, $5, $6)", id, hub, topic, callbackURL, createdAt, updatedAt); err != nil {
+			return nil, "", errors.Wrap(err, "PubSubSQLState.Add")
 		}
 	} else {
-		existed = true
+		callbackURL = oldCallbackURL
 
-		if newCallbackURL := baseURL + "/" + id; newCallbackURL != callbackURL {
+		if newCallbackURL := baseURL + "/" + id; newCallbackURL != oldCallbackURL {
 			callbackURL = newCallbackURL
+			updatedAt = time.Now()
 
-			if _, err := tx.Exec("update pubsub_state set callback_url = $1, expires_at = NULL where id = $2", callbackURL, id); err != nil {
-				return "", "", false, errors.Wrap(err, "PubSubSQLState.Add")
+			if _, err := tx.Exec("update pubsub_state set callback_url = $1, updated_at = $2, expires_at = NULL where id = $3", callbackURL, updatedAt, id); err != nil {
+				return nil, "", errors.Wrap(err, "PubSubSQLState.Add")
 			}
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return "", "", false, errors.Wrap(err, "PubSubSQLState.Add")
+		return nil, "", errors.Wrap(err, "PubSubSQLState.Add")
 	}
 
-	return id, callbackURL, existed, nil
+	return &PubSubSubscription{
+		ID:          id,
+		Hub:         hub,
+		Topic:       topic,
+		CallbackURL: callbackURL,
+		CreatedAt:   createdAt,
+		UpdatedAt:   updatedAt,
+		ExpiresAt:   expiresAt,
+	}, oldCallbackURL, nil
 }
 
 func (s *PubSubSQLState) Get(hub, topic string) (*PubSubSubscription, error) {
 	var v PubSubSubscription
 
-	if err := s.DB.QueryRow("select id, hub, topic, callback_url, expires_at from pubsub_state where hub = $1 and topic = $2", hub, topic).Scan(&v.ID, &v.Hub, &v.Topic, &v.CallbackURL, &v.ExpiresAt); err != nil {
+	if err := s.DB.QueryRow("select id, hub, topic, callback_url, created_at, updated_at, expires_at from pubsub_state where hub = $1 and topic = $2", hub, topic).Scan(&v.ID, &v.Hub, &v.Topic, &v.CallbackURL, &v.CreatedAt, &v.ExpiresAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -93,7 +113,7 @@ func (s *PubSubSQLState) Get(hub, topic string) (*PubSubSubscription, error) {
 func (s *PubSubSQLState) GetByID(id string) (*PubSubSubscription, error) {
 	var v PubSubSubscription
 
-	if err := s.DB.QueryRow("select id, hub, topic, callback_url, expires_at from pubsub_state where id = $1", id).Scan(&v.ID, &v.Hub, &v.Topic, &v.CallbackURL, &v.ExpiresAt); err != nil {
+	if err := s.DB.QueryRow("select id, hub, topic, callback_url, created_at, updated_at, expires_at from pubsub_state where id = $1", id).Scan(&v.ID, &v.Hub, &v.Topic, &v.CallbackURL, &v.CreatedAt, &v.UpdatedAt, &v.ExpiresAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -104,8 +124,8 @@ func (s *PubSubSQLState) GetByID(id string) (*PubSubSubscription, error) {
 	return &v, nil
 }
 
-func (s *PubSubSQLState) Set(hub, topic string, expiresAt time.Time) error {
-	if _, err := s.DB.Exec("update pubsub_state set expires_at = $1 where hub = $2 and topic = $3", expiresAt, hub, topic); err != nil {
+func (s *PubSubSQLState) Set(hub, topic string, updatedAt, expiresAt time.Time) error {
+	if _, err := s.DB.Exec("update pubsub_state set updated_at = $1, expires_at = $2 where hub = $3 and topic = $4", updatedAt, expiresAt, hub, topic); err != nil {
 		return errors.Wrap(err, "PubSubSQLState.Set")
 	}
 

@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/Sirupsen/logrus"
@@ -129,26 +130,20 @@ func main() {
 		}
 	})
 
-	//
-	// ----
-	// disabled until there's rate limiting in place
-	// ----
-	//
-	// go func() {
-	// 	time.Sleep(time.Second * 2)
-	//
-	// 	for {
-	// 		logrus.Debug("refreshing pubsub subscriptions")
-	// 		if err := psc.Refresh(false, *pubsubRefreshInterval); err != nil {
-	// 			logrus.WithError(err).Error("couldn't refresh pubsub subscriptions")
-	// 		} else {
-	// 			logrus.Debug("refreshed pubsub subscriptions")
-	// 		}
-	//
-	// 		time.Sleep(*pubsubRefreshInterval)
-	// 	}
-	// }()
-	//
+	go func() {
+		time.Sleep(time.Second * 2)
+
+		for {
+			logrus.Debug("refreshing pubsub subscriptions")
+			if err := psc.Refresh(false, *pubsubRefreshInterval); err != nil {
+				logrus.WithError(err).Error("couldn't refresh pubsub subscriptions")
+			} else {
+				logrus.Debug("refreshed pubsub subscriptions")
+			}
+
+			time.Sleep(*pubsubRefreshInterval)
+		}
+	}()
 
 	var vm *duktape.Context
 	var vmLock sync.Mutex
