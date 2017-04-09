@@ -110,8 +110,6 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 		}
 
 		if forceUpdate || e.ExpiresAt.Sub(time.Now()) < interval || e.CallbackURL != callbackURL {
-			l.Debug("pubsub: refreshing subscription")
-
 			g.Add(func() error {
 				u, err := url.Parse(e.Hub)
 				if err != nil {
@@ -126,6 +124,8 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 					l.WithField("duration", dur).Debug("pubsub: waiting so as not to overwhelm the endpoint")
 					time.Sleep(dur)
 				}
+
+				l.Debug("pubsub: refreshing subscription")
 
 				if err := c.Subscribe(e.Hub, e.Topic); err != nil {
 					l.WithError(err).Warn("pubsub: couldn't subscribe to topic")
