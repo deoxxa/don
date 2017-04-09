@@ -58,7 +58,7 @@ func (s *PubSubSQLState) Add(hub, topic, baseURL string) (*PubSubSubscription, s
 
 	tx, err := s.DB.Begin()
 	if err != nil {
-		return nil, "", errors.Wrap(err, "PubSubSQLState.Add")
+		return nil, "", errors.Wrap(err, "PubSubSQLState.Add: couldn't open transaction")
 	}
 	defer tx.Rollback()
 
@@ -67,7 +67,7 @@ func (s *PubSubSQLState) Add(hub, topic, baseURL string) (*PubSubSubscription, s
 	var id, callbackURL, oldCallbackURL string
 	if err := tx.QueryRow("select id, callback_url, created_at, updated_at, expires_at from pubsub_state where hub = $1 and topic = $2", hub, topic).Scan(&id, &oldCallbackURL, &createdAt, &updatedAt, &expiresAt); err != nil {
 		if err != sql.ErrNoRows {
-			return nil, "", errors.Wrap(err, "PubSubSQLState.Add")
+			return nil, "", errors.Wrap(err, "PubSubSQLState.Add: couldn't select subscription record")
 		}
 
 		id = uuid.NewV4().String()
@@ -76,7 +76,7 @@ func (s *PubSubSQLState) Add(hub, topic, baseURL string) (*PubSubSubscription, s
 		callbackURL = baseURL + "/" + id
 
 		if _, err := tx.Exec("insert into pubsub_state (id, hub, topic, callback_url, created_at, updated_at) values ($1, $2, $3, $4, $5, $6)", id, hub, topic, callbackURL, createdAt, updatedAt); err != nil {
-			return nil, "", errors.Wrap(err, "PubSubSQLState.Add")
+			return nil, "", errors.Wrap(err, "PubSubSQLState.Add: couldn't insert subscription record")
 		}
 	} else {
 		callbackURL = oldCallbackURL
@@ -86,13 +86,13 @@ func (s *PubSubSQLState) Add(hub, topic, baseURL string) (*PubSubSubscription, s
 			updatedAt = time.Now()
 
 			if _, err := tx.Exec("update pubsub_state set callback_url = $1, updated_at = $2, expires_at = NULL where id = $3", callbackURL, updatedAt, id); err != nil {
-				return nil, "", errors.Wrap(err, "PubSubSQLState.Add")
+				return nil, "", errors.Wrap(err, "PubSubSQLState.Add: couldn't update subscription record")
 			}
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, "", errors.Wrap(err, "PubSubSQLState.Add")
+		return nil, "", errors.Wrap(err, "PubSubSQLState.Add: couldn't close transaction")
 	}
 
 	return &PubSubSubscription{
@@ -117,7 +117,7 @@ func (s *PubSubSQLState) Get(hub, topic string) (*PubSubSubscription, error) {
 			return nil, nil
 		}
 
-		return nil, errors.Wrap(err, "PubSubSQLState.Get")
+		return nil, errors.Wrap(err, "PubSubSQLState.Get: couldn't select subscription record")
 	}
 
 	return &v, nil
@@ -134,7 +134,7 @@ func (s *PubSubSQLState) GetByID(id string) (*PubSubSubscription, error) {
 			return nil, nil
 		}
 
-		return nil, errors.Wrap(err, "PubSubSQLState.GetByID")
+		return nil, errors.Wrap(err, "PubSubSQLState.GetByID: couldn't select subscription record")
 	}
 
 	return &v, nil
@@ -145,7 +145,7 @@ func (s *PubSubSQLState) Set(hub, topic string, updatedAt, expiresAt time.Time) 
 	defer s.m.Unlock()
 
 	if _, err := s.DB.Exec("update pubsub_state set updated_at = $1, expires_at = $2 where hub = $3 and topic = $4", updatedAt, expiresAt, hub, topic); err != nil {
-		return errors.Wrap(err, "PubSubSQLState.Set")
+		return errors.Wrap(err, "PubSubSQLState.Set: couldn't update subscription record")
 	}
 
 	return nil
@@ -156,7 +156,7 @@ func (s *PubSubSQLState) Del(hub, topic string) error {
 	defer s.m.Unlock()
 
 	if _, err := s.DB.Exec("delete from pubsub_state where hub = $1 and topic = $2", hub, topic); err != nil {
-		return errors.Wrap(err, "PubSubSQLState.Del")
+		return errors.Wrap(err, "PubSubSQLState.Del: couldn't delete subscription record")
 	}
 
 	return nil
