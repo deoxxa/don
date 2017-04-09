@@ -12,6 +12,7 @@ var (
 	peopleTable = sqlbuilder.NewTable(
 		"people",
 		&sqlbuilder.TableOption{Unique: [][]string{{"hub", "topic"}}},
+		sqlbuilder.IntColumn("ROWID", nil),
 		sqlbuilder.StringColumn("feed_url", &sqlbuilder.ColumnOption{NotNull: true, PrimaryKey: true}),
 		sqlbuilder.DateColumn("first_seen", &sqlbuilder.ColumnOption{NotNull: true}),
 		sqlbuilder.StringColumn("name", nil),
