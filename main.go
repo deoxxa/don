@@ -16,6 +16,7 @@ import (
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/Sirupsen/logrus"
+	"github.com/dyninc/qstring"
 	"github.com/gorilla/mux"
 	"github.com/jtacoma/uritemplates"
 	_ "github.com/mattn/go-sqlite3"
@@ -23,6 +24,8 @@ import (
 	"github.com/olebedev/go-duktape"
 	"github.com/sebest/xff"
 	"github.com/timewasted/go-accept-headers"
+	"github.com/umisama/go-sqlbuilder"
+	"github.com/umisama/go-sqlbuilder/dialects"
 	"github.com/urfave/negroni"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -38,6 +41,8 @@ var (
 
 func main() {
 	kingpin.MustParse(app.Parse(os.Args[1:]))
+
+	sqlbuilder.SetDialect(dialects.Sqlite{})
 
 	ll, err := logrus.ParseLevel(*logLevel)
 	if err != nil {
@@ -204,8 +209,18 @@ func main() {
 
 	m.PathPrefix("/pubsub").Handler(psc.Handler())
 
+	m.Methods("GET").Path("/health").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		rw.WriteHeader(http.StatusOK)
+	})
+
 	m.Methods("GET").Path("/").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		posts, err := getPublicTimeline(db, 0, 25)
+		var args getPublicTimelineArgs
+		if err := qstring.Unmarshal(r.URL.Query(), &args); err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		posts, err := getPublicTimeline(db, args)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
@@ -214,7 +229,7 @@ func main() {
 		initialState := map[string]interface{}{
 			"publicTimeline": map[string]interface{}{
 				"loading": false,
-				"posts":   toPrimitive(posts),
+				"posts":   posts,
 				"error":   nil,
 			},
 		}
@@ -273,10 +288,6 @@ func main() {
 				panic(err)
 			}
 		}
-	})
-
-	m.Methods("GET").Path("/health").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		rw.WriteHeader(http.StatusOK)
 	})
 
 	m.Methods("GET").Path("/show-feed").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {

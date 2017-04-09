@@ -4,6 +4,32 @@ import (
 	"database/sql"
 	"encoding/json"
 	"time"
+
+	"github.com/umisama/go-sqlbuilder"
+)
+
+var (
+	peopleTable = sqlbuilder.NewTable(
+		"people",
+		&sqlbuilder.TableOption{Unique: [][]string{{"hub", "topic"}}},
+		sqlbuilder.StringColumn("feed_url", &sqlbuilder.ColumnOption{NotNull: true, PrimaryKey: true}),
+		sqlbuilder.DateColumn("first_seen", &sqlbuilder.ColumnOption{NotNull: true}),
+		sqlbuilder.StringColumn("name", nil),
+		sqlbuilder.StringColumn("display_name", nil),
+		sqlbuilder.StringColumn("email", nil),
+		sqlbuilder.StringColumn("summary", nil),
+		sqlbuilder.StringColumn("note", nil),
+	)
+
+	postsTable = sqlbuilder.NewTable(
+		"posts",
+		&sqlbuilder.TableOption{Unique: [][]string{{"feed_url", "id"}}},
+		sqlbuilder.IntColumn("ROWID", nil),
+		sqlbuilder.StringColumn("feed_url", &sqlbuilder.ColumnOption{NotNull: true}),
+		sqlbuilder.StringColumn("id", &sqlbuilder.ColumnOption{NotNull: true}),
+		sqlbuilder.StringColumn("created_at", &sqlbuilder.ColumnOption{NotNull: true}),
+		sqlbuilder.StringColumn("raw_entry", &sqlbuilder.ColumnOption{NotNull: true}),
+	)
 )
 
 func savePerson(db *sql.DB, feedURL string, author *AtomAuthor) error {
@@ -63,8 +89,45 @@ func saveEntry(db *sql.DB, feedURL string, entry *AtomEntry) error {
 	return tx.Commit()
 }
 
-func getPublicTimeline(db *sql.DB, offset, limit int) ([]UIStatus, error) {
-	rows, err := db.Query("select posts.ROWID, posts.feed_url, posts.raw_entry, people.name, people.display_name, people.email from posts left join people on people.feed_url = posts.feed_url order by posts.created_at desc limit $1 offset $2", limit, offset)
+type getPublicTimelineArgs struct {
+	AfterID int `qstring:"after_id"`
+	Offset  int `qstring:"offset,omitempty"`
+	Limit   int `qstring:"limit,omitempty"`
+}
+
+func getPublicTimeline(db *sql.DB, args getPublicTimelineArgs) ([]UIStatus, error) {
+	qb := sqlbuilder.
+		Select(postsTable.LeftOuterJoin(peopleTable, peopleTable.C("feed_url").Eq(postsTable.C("feed_url")))).
+		Columns(
+			postsTable.C("ROWID"),
+			postsTable.C("feed_url"),
+			postsTable.C("raw_entry"),
+			peopleTable.C("name"),
+			peopleTable.C("display_name"),
+			peopleTable.C("email"),
+		).
+		OrderBy(true, postsTable.C("created_at"))
+
+	if args.Offset > 0 && args.Offset < 225 {
+		qb = qb.Offset(args.Offset)
+	}
+
+	if args.Limit > 0 && args.Limit <= 25 {
+		qb = qb.Limit(args.Limit)
+	} else {
+		qb = qb.Limit(25)
+	}
+
+	if args.AfterID != 0 {
+		qb = qb.Where(postsTable.C("ROWID").Gt(args.AfterID))
+	}
+
+	q, vars, err := qb.ToSql()
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.Query(q, vars...)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +135,8 @@ func getPublicTimeline(db *sql.DB, offset, limit int) ([]UIStatus, error) {
 
 	var posts []UIStatus
 	for rows.Next() {
-		var id, feedURL, rawEntry string
+		var id int
+		var feedURL, rawEntry string
 		var name, displayName, email sql.NullString
 		if err := rows.Scan(&id, &feedURL, &rawEntry, &name, &displayName, &email); err != nil {
 			return nil, err
