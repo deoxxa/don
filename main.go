@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -278,7 +279,9 @@ func main() {
 
 				vm.PushString(r.URL.String())
 				vm.PushString(string(d))
-				vm.Call(2)
+				if rc := vm.Pcall(2); rc != 0 {
+					return fmt.Errorf("invalid rc: expected 0 but got %d", rc)
+				}
 				html = vm.SafeToString(-1)
 				vm.Pop()
 
