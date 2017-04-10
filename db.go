@@ -185,3 +185,117 @@ func getPublicTimeline(db *sql.DB, args getPublicTimelineArgs) ([]UIStatus, erro
 
 	return posts, nil
 }
+
+type getPostsArgs struct {
+	AfterID    int       `qstring:"after_id,omitempty"`
+	BeforeID   int       `qstring:"before_id,omitempty"`
+	AfterTime  time.Time `qstring:"after_time,omitempty"`
+	BeforeTime time.Time `qstring:"before_time,omitempty"`
+	People     []int     `qstring:"people,omitempty"`
+	Sort       string    `qstring:"sort,omitempty"`
+	Limit      int       `qstring:"limit,omitempty"`
+}
+
+func getPosts(db *sql.DB, args getPostsArgs) ([]UIStatus, error) {
+	qb := sqlbuilder.
+		Select(postsTable.LeftOuterJoin(peopleTable, peopleTable.C("feed_url").Eq(postsTable.C("feed_url")))).
+		Columns(
+			postsTable.C("ROWID"),
+			postsTable.C("feed_url"),
+			postsTable.C("raw_entry"),
+			peopleTable.C("name"),
+			peopleTable.C("display_name"),
+			peopleTable.C("email"),
+		)
+
+	if args.Limit > 0 && args.Limit <= 75 {
+		qb = qb.Limit(args.Limit)
+	} else {
+		qb = qb.Limit(75)
+	}
+
+	switch args.Sort {
+	case "-created_at":
+		qb = qb.OrderBy(false, postsTable.C("created_at"))
+	case "created_at":
+		qb = qb.OrderBy(true, postsTable.C("created_at"))
+	case "-id":
+		qb = qb.OrderBy(false, postsTable.C("ROWID"))
+	default:
+		qb = qb.OrderBy(true, postsTable.C("ROWID"))
+	}
+
+	var conditions []sqlbuilder.Condition
+
+	if args.AfterID != 0 {
+		conditions = append(conditions, postsTable.C("ROWID").Gt(args.AfterID))
+	}
+	if args.BeforeID != 0 {
+		conditions = append(conditions, postsTable.C("ROWID").Lt(args.BeforeID))
+	}
+	if !args.AfterTime.IsZero() {
+		conditions = append(conditions, postsTable.C("created_at").Gt(args.AfterTime))
+	}
+	if !args.BeforeTime.IsZero() {
+		conditions = append(conditions, postsTable.C("created_at").Gt(args.BeforeTime))
+	}
+
+	if len(args.People) > 0 {
+		var a []interface{}
+		for _, id := range args.People {
+			a = append(a, id)
+		}
+
+		conditions = append(conditions, peopleTable.C("ROWID").In(a...))
+	}
+
+	if len(conditions) > 0 {
+		qb = qb.Where(sqlbuilder.And(conditions...))
+	}
+
+	q, vars, err := qb.ToSql()
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.Query(q, vars...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []UIStatus
+	for rows.Next() {
+		var id int
+		var feedURL, rawEntry string
+		var name, displayName, email sql.NullString
+		if err := rows.Scan(&id, &feedURL, &rawEntry, &name, &displayName, &email); err != nil {
+			return nil, err
+		}
+
+		var entry AtomEntry
+		if err := json.Unmarshal([]byte(rawEntry), &entry); err != nil {
+			return nil, err
+		}
+
+		post := UIStatus{ID: id}
+
+		if name.Valid {
+			post.AuthorAcct = email.String
+			post.AuthorName = name.String
+		}
+
+		if t, err := time.Parse(time.RFC3339, entry.Published); err == nil {
+			post.Time = t
+		}
+
+		if entry.Content != nil {
+			post.ContentHTML = entry.Content.HTML()
+			post.ContentText = entry.Content.Text()
+		}
+
+		posts = append(posts, post)
+	}
+
+	return posts, nil
+}
