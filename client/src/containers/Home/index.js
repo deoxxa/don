@@ -9,7 +9,7 @@ import styles from './styles.css';
 
 export class Home extends Component {
   render() {
-    const { publicTimeline } = this.props;
+    const { publicTimeline: { posts = [] } } = this.props;
 
     return (
       <div>
@@ -41,9 +41,8 @@ export class Home extends Component {
           Here are some posts from the public timeline!
         </h1>
 
-        {publicTimeline.posts.map(post => (
-          <PublicTimelinePost key={post.id} post={post} />
-        ))}
+        {(posts || [])
+          .map(post => <PublicTimelinePost key={post.id} post={post} />)}
       </div>
     );
   }
