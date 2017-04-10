@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/GeertJohan/go.rice"
@@ -167,14 +166,25 @@ func main() {
 		}
 	}()
 
-	var vm *duktape.Context
-	var vmLock sync.Mutex
+	vmCount := 1
+	vms := make(chan *duktape.Context, vmCount)
+	for i := 0; i < vmCount; i++ {
+		vms <- nil
+	}
 
 	jsPrelude := `console = { log: function() {} }; module = { exports: null };`
 
 	withVM := func(fn func(vm *duktape.Context) error) error {
-		vmLock.Lock()
-		defer vmLock.Unlock()
+		vm := <-vms
+		defer func() {
+			vms <- vm
+		}()
+
+		defer func() {
+			if e := recover(); e != nil {
+				vm = nil
+			}
+		}()
 
 		if vm == nil {
 			c := duktape.New()
