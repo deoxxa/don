@@ -18,6 +18,7 @@ cross.stamp: *.go $(shell find migrations public templates -type f) build/entry-
 	@xgo -targets 'darwin/amd64,linux/amd64,linux/arm,windows/amd64' .
 	@rice append --exec don-darwin-10.6-amd64
 	@rice append --exec don-linux-amd64
+	@rice append --exec don-linux-arm64
 	@rice append --exec don-linux-arm-5
 	@rice append --exec don-windows-4.0-amd64.exe
 	@touch cross.stamp
@@ -33,7 +34,7 @@ cross: cross.stamp
 
 clean:
 	@echo "--> Removing build artifacts"
-	@rm -rvf cross.stamp don don-darwin-10.6-amd64 don-linux-amd64 don-linux-arm-5 don-windows-4.0-amd64.exe build/*
+	@rm -rvf cross.stamp don don-darwin-10.6-amd64 don-linux-amd64 don-linux-arm64 don-linux-arm-5 don-windows-4.0-amd64.exe build/*
 
 release: cross.stamp
 ifeq ($(BINTRAY_VERSION) , dev)
@@ -46,6 +47,8 @@ endif
 	@curl --output /dev/null --progress-bar --upload-file don-darwin-10.6-amd64     --user "${BINTRAY_AUTH}" "https://api.bintray.com/content/${BINTRAY_USER}/${BINTRAY_REPO}/${BINTRAY_PACKAGE}/${BINTRAY_VERSION}/${BINTRAY_REPO}_${BINTRAY_VERSION}_darwin-amd64"
 	@echo "... linux-amd64"
 	@curl --output /dev/null --progress-bar --upload-file don-linux-amd64           --user "${BINTRAY_AUTH}" "https://api.bintray.com/content/${BINTRAY_USER}/${BINTRAY_REPO}/${BINTRAY_PACKAGE}/${BINTRAY_VERSION}/${BINTRAY_REPO}_${BINTRAY_VERSION}_linux-amd64"
+	@echo "... linux-arm64"
+	@curl --output /dev/null --progress-bar --upload-file don-linux-arm64           --user "${BINTRAY_AUTH}" "https://api.bintray.com/content/${BINTRAY_USER}/${BINTRAY_REPO}/${BINTRAY_PACKAGE}/${BINTRAY_VERSION}/${BINTRAY_REPO}_${BINTRAY_VERSION}_linux-arm64"
 	@echo "... linux-arm"
 	@curl --output /dev/null --progress-bar --upload-file don-linux-arm-5           --user "${BINTRAY_AUTH}" "https://api.bintray.com/content/${BINTRAY_USER}/${BINTRAY_REPO}/${BINTRAY_PACKAGE}/${BINTRAY_VERSION}/${BINTRAY_REPO}_${BINTRAY_VERSION}_linux-arm"
 	@echo "... windows-amd64"
@@ -65,6 +68,8 @@ endif
 	@curl --output /dev/null --silent --user "${BINTRAY_AUTH}" --request PUT --header 'content-type: application/json' --data-binary '{"list_in_downloads": true}' "https://api.bintray.com/file_metadata/${BINTRAY_USER}/${BINTRAY_REPO}/${BINTRAY_REPO}_${BINTRAY_VERSION}_darwin-amd64"
 	@echo "... linux-amd64"
 	@curl --output /dev/null --silent --user "${BINTRAY_AUTH}" --request PUT --header 'content-type: application/json' --data-binary '{"list_in_downloads": true}' "https://api.bintray.com/file_metadata/${BINTRAY_USER}/${BINTRAY_REPO}/${BINTRAY_REPO}_${BINTRAY_VERSION}_linux-amd64"
+	@echo "... linux-arm64"
+	@curl --output /dev/null --silent --user "${BINTRAY_AUTH}" --request PUT --header 'content-type: application/json' --data-binary '{"list_in_downloads": true}' "https://api.bintray.com/file_metadata/${BINTRAY_USER}/${BINTRAY_REPO}/${BINTRAY_REPO}_${BINTRAY_VERSION}_linux-arm64"
 	@echo "... linux-arm"
 	@curl --output /dev/null --silent --user "${BINTRAY_AUTH}" --request PUT --header 'content-type: application/json' --data-binary '{"list_in_downloads": true}' "https://api.bintray.com/file_metadata/${BINTRAY_USER}/${BINTRAY_REPO}/${BINTRAY_REPO}_${BINTRAY_VERSION}_linux-arm"
 	@echo "... windows-amd64"
