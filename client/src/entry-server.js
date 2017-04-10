@@ -1,12 +1,16 @@
+// @flow
+
 import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { StaticRouter } from 'react-router';
 
+import type { State } from 'ducks';
+
 import Root from './root';
 import { setupAxios, setupStore } from './setup';
 
-module.exports = function main(location, initialStateJSON) {
-  let initialState = {};
+module.exports = function main(location: string, initialStateJSON: string) {
+  let initialState: ?State = null;
   if (initialStateJSON) {
     try {
       initialState = JSON.parse(initialStateJSON);

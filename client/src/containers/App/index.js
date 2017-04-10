@@ -1,3 +1,5 @@
+// @flow
+
 import React from 'react';
 
 import styles from './styles.css';
@@ -6,7 +8,7 @@ const website = 'https://www.fknsrs.biz/';
 const blog = 'https://www.fknsrs.biz/blog/don-statusnet-node-part-one-read-protocols.html';
 const resume = 'https://www.fknsrs.biz/resume.html';
 
-const App = ({ children }) => (
+const App = ({ children }: { children?: React.Children }) => (
   <div>
     <header className={styles.header}>
       <a className={styles.title} href="/">DON</a>

@@ -1,16 +1,31 @@
-const ERROR = 'don/publicTimeline/ERROR';
-const LOADED = 'don/publicTimeline/LOADED';
-const LOADING = 'don/publicTimeline/LOADING';
+// @flow
 
-export const publicTimelineError = error => ({
-  type: ERROR,
+export type Post = {
+  id: string,
+  authorName: ?string,
+  authorAcct: ?string,
+  time: string,
+  contentHTML: string,
+};
+
+export type State = {
+  loading: boolean,
+  posts: ?Array<Post>,
+  error: ?Error,
+};
+
+export const publicTimelineError = (error: Error) => ({
+  type: 'don/publicTimeline/ERROR',
   payload: { error },
 });
-export const publicTimelineLoaded = posts => ({
-  type: LOADED,
+export const publicTimelineLoaded = (posts: Array<Post>) => ({
+  type: 'don/publicTimeline/LOADED',
   payload: { posts },
 });
-export const publicTimelineLoading = () => ({ type: LOADING });
+export const publicTimelineLoading = () => ({
+  type: 'don/publicTimeline/LOADING',
+  payload: {},
+});
 
 const defaultState = {
   loading: false,
@@ -18,16 +33,33 @@ const defaultState = {
   error: null,
 };
 
-export default (state = defaultState, action) => {
-  const { type, payload } = action;
-
-  switch (type) {
-    case ERROR:
-      return { ...state, loading: false, error: payload.error };
-    case LOADED:
-      return { ...state, loading: false, error: null, posts: payload.posts };
-    case LOADING:
-      return { ...state, loading: true, error: null };
+export default (
+  state: State = defaultState,
+  action:
+    | { type: 'don/publicTimeline/ERROR', payload: { error: Error } }
+    | { type: 'don/publicTimeline/LOADED', payload: { posts: Array<Post> } }
+    | { type: 'don/publicTimeline/LOADING', payload: {} }
+) => {
+  switch (action.type) {
+    case 'don/publicTimeline/ERROR':
+      return {
+        ...state,
+        loading: false,
+        error: action.payload.error,
+      };
+    case 'don/publicTimeline/LOADED':
+      return {
+        ...state,
+        loading: false,
+        error: null,
+        posts: action.payload.posts,
+      };
+    case 'don/publicTimeline/LOADING':
+      return {
+        ...state,
+        loading: true,
+        error: null,
+      };
     default:
       return state;
   }

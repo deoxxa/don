@@ -1,8 +1,14 @@
+// @flow
+
 import React, { Component } from 'react';
+
+import type { Post } from 'ducks/publicTimeline';
 
 import styles from './styles.css';
 
 export default class PublicTimelinePost extends Component {
+  props: { post: Post };
+
   render() {
     const { post } = this.props;
 

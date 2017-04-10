@@ -1,6 +1,10 @@
+// @flow
+
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { Link } from 'react-router';
+
+import type { State as PublicTimelineState } from 'ducks/publicTimeline';
 
 import FontAwesome from 'components/FontAwesome';
 import PublicTimelinePost from 'components/PublicTimelinePost';
@@ -8,6 +12,8 @@ import PublicTimelinePost from 'components/PublicTimelinePost';
 import styles from './styles.css';
 
 export class Home extends Component {
+  props: { publicTimeline: PublicTimelineState };
+
   render() {
     const { publicTimeline: { posts = [] } } = this.props;
 
@@ -27,7 +33,7 @@ export class Home extends Component {
               required
             />
 
-            <input type="submit" value="👀" />
+            <input type="submit" value="Search" />
           </div>
         </form>
 

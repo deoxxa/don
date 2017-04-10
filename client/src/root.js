@@ -11,7 +11,7 @@ function scrollToTop() {
   window.scrollTo(0, 0);
 }
 
-const Root = ({ store }) => (
+const Root = ({ store }: { store: Object }) => (
   <Provider store={store}>
     <App>
       <Route exact path="/" component={Home} />

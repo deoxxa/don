@@ -1,10 +1,14 @@
+// @flow
+
+import type axios from 'axios';
 import { applyMiddleware, combineReducers, compose, createStore } from 'redux';
 import { createLogger } from 'redux-logger';
 import thunkMiddleware from 'redux-thunk';
 
 import * as ducks from 'ducks';
+import type { State } from 'ducks';
 
-export function setupStore(initialState = {}) {
+export function setupStore(initialState?: ?State): Object {
   let middleware = [thunkMiddleware];
 
   if (
@@ -36,7 +40,7 @@ export function setupStore(initialState = {}) {
   return store;
 }
 
-export function setupAxios(axios) {
+export function setupAxios(axios: axios) {
   axios.interceptors.request.use(input => {
     let config = input;
 

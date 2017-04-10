@@ -5,6 +5,9 @@
 .*/node_modules/config-chain/test/broken.json
 .*/node_modules/bower-json/test/pkg-bower-json-malformed/bower.json
 
+[libs]
+types/
+
 [options]
 
 esproposal.class_static_fields=enable
@@ -19,5 +22,6 @@ module.name_mapper.extension='gif' -> '<PROJECT_ROOT>/stub.string.js.flow'
 
 module.name_mapper='^containers/' -> '<PROJECT_ROOT>/src/containers/'
 module.name_mapper='^components/' -> '<PROJECT_ROOT>/src/components/'
+module.name_mapper='^ducks$' -> '<PROJECT_ROOT>/src/ducks/index.js'
 module.name_mapper='^ducks/' -> '<PROJECT_ROOT>/src/ducks/'
 module.name_mapper='^lib/' -> '<PROJECT_ROOT>/src/lib/'
