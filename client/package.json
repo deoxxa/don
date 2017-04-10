@@ -11,7 +11,8 @@
     "watch-server": "NODE_ENV=production webpack -p --watch --config webpack.config.server.js",
     "build-server-dev": "webpack -d --bail --config webpack.config.server.js",
     "watch-server-dev": "webpack -d --watch --config webpack.config.server.js",
-    "start": "node ./dev-server/app.js"
+    "start": "node ./dev-server/app.js",
+    "flow-report": "node flow-report.js"
   },
   "dependencies": {
     "axios": "^0.15.2",
@@ -53,6 +54,7 @@
     "style-loader": "latest",
     "unused-files-webpack-plugin": "^3.0.0",
     "url-loader": "^0.5.7",
+    "walk": "^2.3.9",
     "webpack": "2",
     "webpack-chunk-hash": "^0.4.0",
     "webpack-dev-server": "2"
