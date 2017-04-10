@@ -16,7 +16,8 @@ You can download a binary [from bintray](https://bintray.com/deoxxa/don/portable
 
 * [macos/amd64](https://bintray.com/deoxxa/don/download_file?file_path=don_dev_darwin-amd64)
 * [linux/amd64](https://bintray.com/deoxxa/don/download_file?file_path=don_dev_linux-amd64)
-* [linux/arm](https://bintray.com/deoxxa/don/download_file?file_path=don_dev_linux-amd64)
+* [linux/arm](https://bintray.com/deoxxa/don/download_file?file_path=don_dev_linux-arm)
+* [linux/arm64](https://bintray.com/deoxxa/don/download_file?file_path=don_dev_linux-arm64)
 * [windows/amd64](https://bintray.com/deoxxa/don/download_file?file_path=don_dev_windows-amd64.exe)
 
 On linux and macos you'll have to `chmod +x` the file after you download it.
