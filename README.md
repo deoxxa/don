@@ -57,7 +57,7 @@ them uppercase, e.g. `addr` is `ADDR`.
 Right now, you'll need the following:
 
 1. [go](https://golang.org/) (confirm via `go version`)
-2. [docker](https://golang.org/) (confirm via `docker version`)
+2. [docker](https://www.docker.com/) (confirm via `docker version`)
 
 ```
 $ go get fknsrs.biz/p/don
