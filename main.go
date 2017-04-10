@@ -290,7 +290,7 @@ func main() {
 				vm.PushString(r.URL.String())
 				vm.PushString(string(d))
 				if rc := vm.Pcall(2); rc != 0 {
-					return fmt.Errorf("invalid rc: expected 0 but got %d", rc)
+					return fmt.Errorf("invalid rc: expected 0 but got %d; duktape says %q", rc, vm.SafeToString(-1))
 				}
 				html = vm.SafeToString(-1)
 				vm.Pop()
