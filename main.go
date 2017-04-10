@@ -190,7 +190,7 @@ func main() {
 		}
 
 		if err := fn(vm); err != nil {
-			vm.Destroy()
+			vm.DestroyHeap()
 			vm = nil
 			return err
 		}
