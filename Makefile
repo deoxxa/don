@@ -5,12 +5,12 @@ don: *.go $(shell find migrations public templates -type f) build/entry-server-b
 
 build/entry-server-bundle.js: $(shell find client/src -type f) client/webpack.* client/yarn.lock client/package.json
 	@echo "--> Building server JavaScript bundle"
-	@cd client && docker run --rm -it -v `pwd`:/app deoxxa/node-yarn:7.4 bash -c 'cd /app && yarn run build-server'
+	@docker run --rm -it -v `pwd`:/app deoxxa/node-yarn:7.4 bash -c 'cd /app/client && yarn run build-server'
 	@touch build/entry-server-bundle.js
 
 build/entry-client-bundle.js: $(shell find client/src -type f) client/webpack.* client/yarn.lock client/package.json
 	@echo "--> Building client JavaScript bundle"
-	@cd client && docker run --rm -it -v `pwd`:/app deoxxa/node-yarn:7.4 bash -c 'cd /app && yarn run build-client'
+	@docker run --rm -it -v `pwd`:/app deoxxa/node-yarn:7.4 bash -c 'cd /app/client && yarn run build-client'
 	@touch build/entry-client-bundle.js
 
 cross.stamp: *.go $(shell find migrations public templates -type f) build/entry-server-bundle.js build/entry-client-bundle.js
