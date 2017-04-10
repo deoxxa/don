@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"io"
 	"net/http"
@@ -21,7 +20,6 @@ import (
 	"github.com/jtacoma/uritemplates"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/meatballhat/negroni-logrus"
-	"github.com/olebedev/go-duktape"
 	"github.com/sebest/xff"
 	"github.com/timewasted/go-accept-headers"
 	"github.com/umisama/go-sqlbuilder"
@@ -38,6 +36,7 @@ var (
 	logLevel              = app.Flag("log_level", "How much to log.").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "FATAL", "PANIC")
 	pubsubRefreshInterval = app.Flag("pubsub_refresh_interval", "PubSub subscription refresh interval.").Default("15m").Envar("PUBSUB_REFRESH_INTERVAL").Duration()
 	recordDocuments       = app.Flag("record_documents", "Record all XML documents for debugging.").Envar("RECORD_DOCUMENTS").Bool()
+	reactRenderer         = app.Flag("react_renderer", "React server rendering strategy.").Envar("REACT_RENDERER").Default("duktape").Enum("duktape", "node")
 )
 
 func main() {
@@ -118,47 +117,12 @@ func main() {
 		}
 	}()
 
-	vmCount := 1
-	vms := make(chan *duktape.Context, vmCount)
-	for i := 0; i < vmCount; i++ {
-		vms <- nil
-	}
-
-	jsPrelude := `console = { log: function() {} }; module = { exports: null };`
-
-	withVM := func(fn func(vm *duktape.Context) error) error {
-		vm := <-vms
-		defer func() {
-			vms <- vm
-		}()
-
-		defer func() {
-			if e := recover(); e != nil {
-				vm = nil
-			}
-		}()
-
-		if vm == nil {
-			c := duktape.New()
-
-			if err := c.PevalString(jsPrelude); err != nil {
-				return err
-			}
-
-			if err := c.PevalString(buildBox.MustString("entry-server-bundle.js")); err != nil {
-				return err
-			}
-
-			vm = c
-		}
-
-		if err := fn(vm); err != nil {
-			vm.DestroyHeap()
-			vm = nil
-			return err
-		}
-
-		return nil
+	var renderer ReactRenderer
+	switch *reactRenderer {
+	case "duktape":
+		renderer = NewReactRendererDuktape(1)
+	case "node":
+		renderer = NewReactRendererNode(1)
 	}
 
 	rootTemplate := template.New("root")
@@ -233,22 +197,8 @@ func main() {
 			io.Copy(rw, bytes.NewReader(d))
 			return
 		case "text/html", "":
-			var html string
-			if err := withVM(func(vm *duktape.Context) error {
-				if err := vm.PevalString("module.exports"); err != nil {
-					return err
-				}
-
-				vm.PushString(r.URL.String())
-				vm.PushString(string(d))
-				if rc := vm.Pcall(2); rc != 0 {
-					return fmt.Errorf("invalid rc: expected 0 but got %d; duktape says %q", rc, vm.SafeToString(-1))
-				}
-				html = vm.SafeToString(-1)
-				vm.Pop()
-
-				return nil
-			}); err != nil {
+			html, err := renderer.Render(buildBox.MustString("entry-server-bundle.js"), r.URL.String(), string(d))
+			if err != nil {
 				http.Error(rw, err.Error(), http.StatusInternalServerError)
 				return
 			}
