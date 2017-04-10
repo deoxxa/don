@@ -15,7 +15,7 @@ build/entry-client-bundle.js: $(shell find client/src -type f) client/webpack.* 
 
 cross.stamp: *.go $(shell find migrations public templates -type f) build/entry-server-bundle.js build/entry-client-bundle.js
 	@echo "--> Building cross-platform binaries"
-	@xgo -targets 'darwin/amd64,linux/amd64,linux/arm,windows/amd64' .
+	@xgo -targets 'darwin/amd64,linux/amd64,linux/arm,linux/arm64,windows/amd64' .
 	@rice append --exec don-darwin-10.6-amd64
 	@rice append --exec don-linux-amd64
 	@rice append --exec don-linux-arm64
