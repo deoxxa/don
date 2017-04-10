@@ -2,6 +2,7 @@
 /build
 /don-darwin-10.6-amd64
 /don-linux-amd64
+/don-linux-arm64
 /don-linux-arm-5
 /don-windows-4.0-amd64.exe
 /don.db
