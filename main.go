@@ -5,11 +5,9 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -98,58 +96,12 @@ func main() {
 		panic(err)
 	}
 
-	psc := NewPubSubClient(*publicURL+"/pubsub", NewPubSubSQLState(db), func(id string, s *PubSubSubscription, rd io.ReadCloser) {
-		var v AtomFeed
+	a, err := NewApp(db)
+	if err != nil {
+		panic(err)
+	}
 
-		if *recordDocuments {
-			d, err := ioutil.ReadAll(rd)
-			if err != nil {
-				logrus.WithField("id", id).WithError(err).Debug("pubsub: couldn't read message")
-				return
-			}
-
-			if err := xml.NewDecoder(bytes.NewReader(d)).Decode(&v); err != nil {
-				logrus.WithField("id", id).WithError(err).Debug("pubsub: couldn't parse body")
-				return
-			}
-
-			if _, err := db.Exec("insert into documents (created_at, xml) values ($1, $2)", time.Now(), string(d)); err != nil {
-				logrus.WithField("id", id).WithError(err).Debug("pubsub: couldn't save document")
-				return
-			}
-		} else {
-			if err := xml.NewDecoder(rd).Decode(&v); err != nil {
-				logrus.WithField("id", id).WithError(err).Debug("pubsub: couldn't parse body")
-				return
-			}
-		}
-
-		if s == nil {
-			logrus.WithField("id", id).Debug("pubsub: unsolicited message")
-			return
-		}
-
-		l := logrus.WithFields(logrus.Fields{
-			"id":    s.ID,
-			"hub":   s.Hub,
-			"topic": s.Topic,
-		})
-
-		if v.Author != nil {
-			if err := savePerson(db, s.Topic, v.Author); err != nil {
-				l.WithError(err).Debug("pubsub: couldn't save author")
-				return
-			}
-		}
-
-		for _, e := range v.Entry {
-			if err := saveEntry(db, s.Topic, &e); err != nil {
-				l.WithError(err).Debug("pubsub: couldn't save entry")
-			} else {
-				l.Debug("pubsub: saved entry")
-			}
-		}
-	})
+	psc := NewPubSubClient(*publicURL+"/pubsub", NewPubSubSQLState(db), a.OnMessage)
 
 	go func() {
 		time.Sleep(time.Second * 2)
