@@ -46,6 +46,7 @@
     "csscomb": "latest",
     "extract-text-webpack-plugin": "2",
     "file-loader": "latest",
+    "flow-bin": "^0.43.1",
     "image-webpack-loader": "^3.0.0",
     "null-loader": "^0.1.1",
     "postcss-loader": "^1.0.0",
