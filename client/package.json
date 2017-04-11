@@ -11,7 +11,7 @@
     "watch-server": "NODE_ENV=production webpack -p --watch --config webpack.config.server.js",
     "build-server-dev": "webpack -d --bail --config webpack.config.server.js",
     "watch-server-dev": "webpack -d --watch --config webpack.config.server.js",
-    "start": "node ./dev-server/app.js",
+    "start": "HOT_RELOAD=yes node ./dev-server/app.js",
     "flow-report": "node flow-report.js"
   },
   "dependencies": {
@@ -26,7 +26,7 @@
     "react-hot-loader": "next",
     "react-redux": "latest",
     "react-router-dom": "^4.0.0",
-    "redbox-react": "^1.2.6",
+    "redbox-react": "latest",
     "redux": "^3.5.2",
     "redux-actions": "latest",
     "redux-localstorage": "^0.4.0",
@@ -57,7 +57,7 @@
     "walk": "^2.3.9",
     "webpack": "2",
     "webpack-chunk-hash": "^0.4.0",
-    "webpack-dev-server": "2"
+    "webpack-dev-server": "latest"
   },
   "babel": {
     "presets": [

@@ -7,3 +7,5 @@
 /don-windows-4.0-amd64.exe
 /don.db
 /cross.stamp
+/don_bare
+/.envrc

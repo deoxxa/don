@@ -37,7 +37,7 @@ export class Home extends Component {
           </div>
         </form>
 
-        <p class={styles.blurb}>
+        <p className={styles.blurb}>
           This is a <em>ridiculously</em> simple, read-only StatusNet node.
           Mostly an experiment.
           <a href="https://www.fknsrs.biz/p/don">Source code is available</a>.

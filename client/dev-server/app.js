@@ -1,41 +1,34 @@
 const webpack = require('webpack');
 const WebpackDevServer = require('webpack-dev-server');
-const config = require('../webpack.config');
+const config = require('../webpack.config.client');
 
-const PROXY_API = process.env.PROXY_API || 'http://127.0.0.1:3000';
+const PROXY_BACKEND = process.env.PROXY_BACKEND || 'http://127.0.0.1:5000';
 const PORT = process.env.PORT || 3000;
 
-config.entry.browser.unshift(
+config.entry['entry-client'].unshift(
   'react-hot-loader/patch',
   'webpack-dev-server/client',
   'webpack/hot/only-dev-server'
 );
 
 config.plugins.unshift(new webpack.HotModuleReplacementPlugin());
-
-config.module.loaders.forEach(loader => {
-  const a = loader.loaders;
-
-  if (a.includes('css?modules')) {
-    a[1] += '&localIdentName=[path][name]---[local]---[hash:base64:5]';
-  }
-});
+config.output.publicPath = '/';
 
 new WebpackDevServer(webpack(config), {
-  contentBase: __dirname,
-  publicPath: config.output.publicPath,
+  publicPath: '/',
   hot: true,
-  historyApiFallback: true,
   proxy: {
-    '/api/*': {
-      target: PROXY_API,
+    '/': {
+      target: PROXY_BACKEND,
     },
   },
-}).listen(PORT, err => {
+}).listen(PORT, function(err) {
   if (err) {
     // crash
     throw err;
   } else {
-    console.log('server started');
+    console.log(
+      `server started; listening on http://127.0.0.1:${this.address().port}`
+    );
   }
 });

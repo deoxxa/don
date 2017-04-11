@@ -37,6 +37,7 @@ var (
 	pubsubRefreshInterval = app.Flag("pubsub_refresh_interval", "PubSub subscription refresh interval.").Default("15m").Envar("PUBSUB_REFRESH_INTERVAL").Duration()
 	recordDocuments       = app.Flag("record_documents", "Record all XML documents for debugging.").Envar("RECORD_DOCUMENTS").Bool()
 	reactRenderer         = app.Flag("react_renderer", "React server rendering strategy.").Envar("REACT_RENDERER").Default("duktape").Enum("duktape", "node")
+	externalJS            = app.Flag("external_js", "Load client JS from an external location.").Envar("EXTERNAL_JS").String()
 )
 
 func main() {
@@ -212,6 +213,11 @@ func main() {
 					"Title":       "Home - DON",
 					"Description": "A very basic StatusNet node. Kind of like Mastodon, but worse.",
 				},
+			}
+
+			if *externalJS != "" {
+				data["CSSFiles"] = []string{}
+				data["JSFiles"] = []string{*externalJS}
 			}
 
 			rw.Header().Set("content-type", "text/html; charset=utf-8")

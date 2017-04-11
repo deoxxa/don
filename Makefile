@@ -1,7 +1,11 @@
-don: *.go $(shell find migrations public templates -type f) build/entry-server-bundle.js build/entry-client-bundle.js
-	@echo "--> Building don with host toolchain"
-	@go build -v -ldflags=-s -o don
+don: don_bare $(shell find migrations public templates -type f) build/entry-server-bundle.js build/entry-client-bundle.js
+	@echo "--> Appending static content"
+	@cp -a don_bare don
 	@rice append --exec don
+
+don_bare: *.go
+	@echo "--> Building don with host toolchain"
+	@go build -v -ldflags=-s -o don_bare
 
 build/entry-server-bundle.js: $(shell find client/src -type f) client/webpack.* client/yarn.lock client/package.json
 	@echo "--> Building server JavaScript bundle"
@@ -23,7 +27,7 @@ cross.stamp: *.go $(shell find migrations public templates -type f) build/entry-
 	@rice append --exec don-windows-4.0-amd64.exe
 	@touch cross.stamp
 
-.PHONY: cross release clean
+.PHONY: cross release clean live_reload
 
 BINTRAY_USER ?= deoxxa
 BINTRAY_REPO ?= don
@@ -34,7 +38,18 @@ cross: cross.stamp
 
 clean:
 	@echo "--> Removing build artifacts"
-	@rm -rvf cross.stamp don don-darwin-10.6-amd64 don-linux-amd64 don-linux-arm64 don-linux-arm-5 don-windows-4.0-amd64.exe build/*
+	@rm -rvf cross.stamp don don_bare don-darwin-10.6-amd64 don-linux-amd64 don-linux-arm64 don-linux-arm-5 don-windows-4.0-amd64.exe build/*
+
+live_reload: don_bare
+	@echo
+	@echo
+	@echo "--> Starting live reload environment..."
+	@echo "--> Please open http://127.0.0.1:5100 in your browser once everything is running"
+	@echo
+	@echo
+	@sleep 3
+	@go get github.com/ddollar/forego
+	@forego start -f Procfile.live_reload
 
 release: cross.stamp
 ifeq ($(BINTRAY_VERSION) , dev)

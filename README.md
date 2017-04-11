@@ -93,3 +93,29 @@ This is the same as above, except that you'll need one more tool:
 Now, instead of running `make`, you run `make cross`. You'll end up with
 binaries named `don-darwin-10.6-amd64`, `don-linux-amd64`, `don-linux-arm-5`,
 and `don-windows-4.0-amd64.exe`.
+
+## Development
+
+Most of the work will probably be in the client code. To make this easier,
+there's a `live_reload` makefile target. This runs a couple of webpack
+processes, and the don server, wiring the server up so that it uses the hot
+reloading bits of webpack. If none of that made sense, don't worry. I've tried
+to paper over all the details on purpose - configuring webpack is _not_ for
+the faint of heart.
+
+All you need to know is that when you run the live reloading environment, you
+have to provide all your server parameters as environment variables. I suggest
+something like the following:
+
+```
+$ export PUBLIC_URL=http://my-host.com
+$ export LOG_LEVEL=DEBUG
+$ make live_reload
+```
+
+Once it's all running, you should be able to open `http://127.0.0.1:5100/` in
+your browser. You'll see a *very* quick flash of unstyled content, but then
+the client JS should kick in and fix it up.
+
+When this is running, you'll be able to save files and have the content in the
+browser update automatically. This makes working on client stuff *much* nicer.

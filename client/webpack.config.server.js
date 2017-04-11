@@ -18,11 +18,11 @@ if (process.env.NODE_ENV === 'production') {
       failOnUnused: true,
     })
   );
-
-  module.exports.module.rules.forEach(rule => {
-    if (rule.use.indexOf('style-loader') === 0) {
-      rule.use.shift();
-      rule.use[0] = rule.use[0].replace('css-loader', 'css-loader/locals');
-    }
-  });
 }
+
+module.exports.module.rules.forEach(rule => {
+  if (rule.use.indexOf('style-loader') === 0) {
+    rule.use.shift();
+    rule.use[0] = rule.use[0].replace('css-loader', 'css-loader/locals');
+  }
+});

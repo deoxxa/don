@@ -1,0 +1,3 @@
+webpack_server: sh -c 'cd client && yarn run watch-server-dev'
+webpack_client: sh -c 'cd client && yarn start'
+don_server: ./don_bare --react_renderer node --external_js http://127.0.0.1:5100/entry-client-bundle.js

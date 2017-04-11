@@ -44,13 +44,15 @@ if (process.env.NODE_ENV === 'production') {
   );
 }
 
-module.exports.plugins.push(new ExtractTextPlugin('[name]-styles.css'));
+if (!process.env.HOT_RELOAD) {
+  module.exports.plugins.push(new ExtractTextPlugin('[name]-styles.css'));
 
-module.exports.module.rules.forEach(rule => {
-  if (rule.use.indexOf('style-loader') === 0) {
-    rule.use = ExtractTextPlugin.extract({
-      fallback: rule.use[0],
-      use: rule.use.slice(1),
-    });
-  }
-});
+  module.exports.module.rules.forEach(rule => {
+    if (rule.use.indexOf('style-loader') === 0) {
+      rule.use = ExtractTextPlugin.extract({
+        fallback: rule.use[0],
+        use: rule.use.slice(1),
+      });
+    }
+  });
+}
