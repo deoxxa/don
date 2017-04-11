@@ -1,5 +1,9 @@
 # don
 
+`don` is a read-only node that can be used as a Atom/Feed aggregator for the Ostatus network.
+No account of your own is needed to use it, but you do need to have a publicly available
+IP address with a domain name to get updates from the network.
+
 [fknsrs.biz/p/don](https://www.fknsrs.biz/p/don)
 
 I was interested by mastodon, but found it to be a little too heavyweight for
