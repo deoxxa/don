@@ -72,7 +72,16 @@ func (r *ReactRendererDuktape) withVM(code string, fn func(vm *duktape.Context) 
 	if vm == nil {
 		c := duktape.New()
 
-		if err := c.PevalString(`console = { log: function() {} }; module = { exports: null };`); err != nil {
+		if err := c.PevalString(`
+			console = {
+				log: function() {},
+				warn: function() {},
+				error: function() {},
+				debug: function() {},
+			};
+
+			module = { exports: null };
+		`); err != nil {
 			return err
 		}
 
