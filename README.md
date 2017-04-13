@@ -119,3 +119,9 @@ the client JS should kick in and fix it up.
 
 When this is running, you'll be able to save files and have the content in the
 browser update automatically. This makes working on client stuff *much* nicer.
+
+## Acknowledgements
+
+Some included icons were made by [Freepik](http://www.freepik.com) at
+[Flaticon](http://www.flaticon.com), which were shared under the [CC 3.0
+BY](http://creativecommons.org/licenses/by/3.0/) Creative Commons license.
