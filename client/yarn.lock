@@ -5098,6 +5098,10 @@ url-regex@^3.0.0:
   dependencies:
     ip-regex "^1.0.1"
 
+url-search-params:
+  version "0.7.0"
+  resolved "https://registry.yarnpkg.com/url-search-params/-/url-search-params-0.7.0.tgz#2545d3425d81ed3c903a213a501edb7d6ddd1be9"
+
 url@^0.11.0:
   version "0.11.0"
   resolved "https://registry.yarnpkg.com/url/-/url-0.11.0.tgz#3838e97cfc60521eb73c525a8e55bfdd9e2e28f1"

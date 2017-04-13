@@ -32,6 +32,7 @@
     "redux-localstorage": "^0.4.0",
     "redux-logger": "latest",
     "redux-thunk": "^2.1.0",
+    "url-search-params": "^0.7.0",
     "uuid": "latest"
   },
   "devDependencies": {
