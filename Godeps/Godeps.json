@@ -41,9 +41,24 @@
 			"Rev": "ab5840a88e818d51076cb7e9708e7cb7ff125a27"
 		},
 		{
+			"ImportPath": "github.com/gorilla/context",
+			"Comment": "v1.1-7-g08b5f42",
+			"Rev": "08b5f424b9271eedf6f9f0ce86cb9396ed337a42"
+		},
+		{
 			"ImportPath": "github.com/gorilla/mux",
 			"Comment": "v1.3.0-5-g599cba5",
 			"Rev": "599cba5e7b6137d46ddf58fb1765f5d928e69604"
+		},
+		{
+			"ImportPath": "github.com/gorilla/securecookie",
+			"Comment": "v1.1-6-ge59506c",
+			"Rev": "e59506cc896acb7f7bf732d4fdf5e25f7ccd8983"
+		},
+		{
+			"ImportPath": "github.com/gorilla/sessions",
+			"Comment": "v1.1-5-gba78acc",
+			"Rev": "ba78acc856fe7c79891d516131b3d903cc8d9367"
 		},
 		{
 			"ImportPath": "github.com/jaytaylor/html2text",
@@ -117,6 +132,22 @@
 			"Rev": "c0db5feaa33826cd5117930c8f4ee5c0f565eec6"
 		},
 		{
+			"ImportPath": "golang.org/x/crypto/bcrypt",
+			"Rev": "9b9c1afcb078c2080cd1fac84be67797a33a32e9"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/blowfish",
+			"Rev": "9b9c1afcb078c2080cd1fac84be67797a33a32e9"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/pbkdf2",
+			"Rev": "9b9c1afcb078c2080cd1fac84be67797a33a32e9"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/scrypt",
+			"Rev": "9b9c1afcb078c2080cd1fac84be67797a33a32e9"
+		},
+		{
 			"ImportPath": "golang.org/x/net/context",
 			"Rev": "d1e1b351919c6738fdeb9893d5c998b161464f0c"
 		},
@@ -136,6 +167,56 @@
 			"ImportPath": "gopkg.in/alecthomas/kingpin.v2",
 			"Comment": "v2.2.3",
 			"Rev": "e9044be3ab2a8e11d4e1f418d12f0790d57e8d70"
+		},
+		{
+			"ImportPath": "gopkg.in/hlandau/easymetric.v1/cexp",
+			"Comment": "v1.0.0",
+			"Rev": "1c173222e345c2ba115e0f483821c6da2d3b0fa9"
+		},
+		{
+			"ImportPath": "gopkg.in/hlandau/measurable.v1",
+			"Comment": "v1.0.1",
+			"Rev": "d96a009bd9bda94dd1294105e67e8c1794e533d3"
+		},
+		{
+			"ImportPath": "gopkg.in/hlandau/passlib.v1",
+			"Comment": "v1.0.9",
+			"Rev": "933f1c3f63ffb0d17de04c3174f875ae683a33cd"
+		},
+		{
+			"ImportPath": "gopkg.in/hlandau/passlib.v1/abstract",
+			"Comment": "v1.0.9",
+			"Rev": "933f1c3f63ffb0d17de04c3174f875ae683a33cd"
+		},
+		{
+			"ImportPath": "gopkg.in/hlandau/passlib.v1/hash/bcrypt",
+			"Comment": "v1.0.9",
+			"Rev": "933f1c3f63ffb0d17de04c3174f875ae683a33cd"
+		},
+		{
+			"ImportPath": "gopkg.in/hlandau/passlib.v1/hash/bcryptsha256",
+			"Comment": "v1.0.9",
+			"Rev": "933f1c3f63ffb0d17de04c3174f875ae683a33cd"
+		},
+		{
+			"ImportPath": "gopkg.in/hlandau/passlib.v1/hash/scrypt",
+			"Comment": "v1.0.9",
+			"Rev": "933f1c3f63ffb0d17de04c3174f875ae683a33cd"
+		},
+		{
+			"ImportPath": "gopkg.in/hlandau/passlib.v1/hash/scrypt/raw",
+			"Comment": "v1.0.9",
+			"Rev": "933f1c3f63ffb0d17de04c3174f875ae683a33cd"
+		},
+		{
+			"ImportPath": "gopkg.in/hlandau/passlib.v1/hash/sha2crypt",
+			"Comment": "v1.0.9",
+			"Rev": "933f1c3f63ffb0d17de04c3174f875ae683a33cd"
+		},
+		{
+			"ImportPath": "gopkg.in/hlandau/passlib.v1/hash/sha2crypt/raw",
+			"Comment": "v1.0.9",
+			"Rev": "933f1c3f63ffb0d17de04c3174f875ae683a33cd"
 		},
 		{
 			"ImportPath": "gopkg.in/kyokomi/emoji.v1",
