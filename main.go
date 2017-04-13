@@ -1,12 +1,9 @@
 package main // import "fknsrs.biz/p/don"
 
 import (
-	"bytes"
 	"crypto/tls"
 	"database/sql"
-	"encoding/json"
 	"html/template"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -15,13 +12,12 @@ import (
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/Sirupsen/logrus"
-	"github.com/dyninc/qstring"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"github.com/jtacoma/uritemplates"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/meatballhat/negroni-logrus"
 	"github.com/sebest/xff"
-	"github.com/timewasted/go-accept-headers"
 	"github.com/umisama/go-sqlbuilder"
 	"github.com/umisama/go-sqlbuilder/dialects"
 	"github.com/urfave/negroni"
@@ -38,6 +34,8 @@ var (
 	recordDocuments       = app.Flag("record_documents", "Record all XML documents for debugging.").Envar("RECORD_DOCUMENTS").Bool()
 	reactRenderer         = app.Flag("react_renderer", "React server rendering strategy.").Envar("REACT_RENDERER").Default("duktape").Enum("duktape", "node")
 	externalJS            = app.Flag("external_js", "Load client JS from an external location.").Envar("EXTERNAL_JS").String()
+	cookieSigningKey      = app.Flag("cookie_signing_key", "Key for signing cookies.").Envar("COOKIE_SIGNING_KEY").Required().HexBytes()
+	cookieEncryptionKey   = app.Flag("cookie_encryption_key", "Key for encrypting cookies.").Envar("COOKIE_ENCRYPTION_KEY").Required().HexBytes()
 )
 
 func main() {
@@ -52,10 +50,16 @@ func main() {
 	logrus.SetLevel(ll)
 
 	logrus.WithFields(logrus.Fields{
-		"addr":       *addr,
-		"database":   *database,
-		"public_url": *publicURL,
-		"log_level":  *logLevel,
+		"addr":                    *addr,
+		"database":                *database,
+		"public_url":              *publicURL,
+		"log_level":               *logLevel,
+		"pubsub_refresh_interval": *pubsubRefreshInterval,
+		"record_documents":        *recordDocuments,
+		"react_renderer":          *reactRenderer,
+		"external_js":             *externalJS,
+		"cookie_signing_key":      strings.Repeat("*", len(*cookieSigningKey)),
+		"cookie_encryption_key":   strings.Repeat("*", len(*cookieEncryptionKey)),
 	}).Info("starting up")
 
 	if http.DefaultClient.Transport == nil {
@@ -63,10 +67,10 @@ func main() {
 	}
 
 	if tr, ok := http.DefaultClient.Transport.(*http.Transport); ok {
-		logrus.Debug("hack: disabling http2 - POST requests are currently broken")
+		logrus.Debug("hack: disabling http2 - client POST requests are currently broken")
 		tr.TLSNextProto = map[string]func(authority string, c *tls.Conn) http.RoundTripper{}
 	} else {
-		logrus.Debug("hack: couldn't disable http2 - POST requests may not work")
+		logrus.Debug("hack: couldn't disable http2 - client POST requests may not work")
 	}
 
 	// this has to be here for rice to work
@@ -96,27 +100,8 @@ func main() {
 		panic(err)
 	}
 
-	a, err := NewApp(db)
-	if err != nil {
-		panic(err)
-	}
-
-	psc := NewPubSubClient(*publicURL+"/pubsub", NewPubSubSQLState(db), a.OnMessage)
-
-	go func() {
-		time.Sleep(time.Second * 2)
-
-		for {
-			logrus.Debug("refreshing pubsub subscriptions")
-			if err := psc.Refresh(false, *pubsubRefreshInterval); err != nil {
-				logrus.WithError(err).Error("couldn't refresh pubsub subscriptions")
-			} else {
-				logrus.Debug("refreshed pubsub subscriptions")
-			}
-
-			time.Sleep(*pubsubRefreshInterval)
-		}
-	}()
+	ss := sessions.NewCookieStore(*cookieSigningKey, *cookieEncryptionKey)
+	ss.Options = &sessions.Options{HttpOnly: true, Secure: strings.HasPrefix(*publicURL, "https:")}
 
 	var renderer ReactRenderer
 	switch *reactRenderer {
@@ -149,83 +134,43 @@ func main() {
 	templateFeed := template.Must(template.Must(rootTemplate.Clone()).Parse(templateBox.MustString("page_feed.html")))
 	templateReact := template.Must(template.Must(rootTemplate.Clone()).Parse(templateBox.MustString("page_react.html")))
 
-	m := mux.NewRouter()
+	a, err := NewApp(db, ss, renderer, templateReact, buildBox)
+	if err != nil {
+		panic(err)
+	}
 
-	m.PathPrefix("/pubsub").Handler(psc.Handler())
+	psc := NewPubSubClient(*publicURL+"/pubsub", NewPubSubSQLState(db), a.OnMessage)
+
+	go func() {
+		time.Sleep(time.Second * 2)
+
+		for {
+			logrus.Debug("refreshing pubsub subscriptions")
+			if err := psc.Refresh(false, *pubsubRefreshInterval); err != nil {
+				logrus.WithError(err).Error("couldn't refresh pubsub subscriptions")
+			} else {
+				logrus.Debug("refreshed pubsub subscriptions")
+			}
+
+			time.Sleep(*pubsubRefreshInterval)
+		}
+	}()
+
+	m := mux.NewRouter()
 
 	m.Methods("GET").Path("/health").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		rw.WriteHeader(http.StatusOK)
 	})
 
-	m.Methods("GET").Path("/").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		var args getPublicTimelineArgs
-		if err := qstring.Unmarshal(r.URL.Query(), &args); err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	m.PathPrefix("/pubsub").Handler(psc.Handler())
 
-		posts, err := getPublicTimeline(db, args)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		initialState := map[string]interface{}{
-			"publicTimeline": map[string]interface{}{
-				"loading": false,
-				"posts":   posts,
-				"error":   nil,
-			},
-		}
-
-		d, err := json.Marshal(initialState)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		acceptable := accept.Parse(r.Header.Get("accept"))
-
-		ct, err := acceptable.Negotiate("text/html", "application/json")
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		switch ct {
-		case "application/json":
-			rw.Header().Set("content-type", "application/json; charset=utf8")
-			io.Copy(rw, bytes.NewReader(d))
-			return
-		case "text/html", "":
-			html, err := renderer.Render(buildBox.MustString("entry-server-bundle.js"), r.URL.String(), string(d))
-			if err != nil {
-				http.Error(rw, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			data := map[string]interface{}{
-				"HTML":     template.HTML(html),
-				"JSON":     template.JS(d),
-				"CSSFiles": []string{"/build/vendor-styles.css", "/build/entry-client-styles.css"},
-				"JSFiles":  []string{"/build/vendor-bundle.js", "/build/entry-client-bundle.js"},
-				"Meta": map[string]interface{}{
-					"Title":       "Home - DON",
-					"Description": "A very basic StatusNet node. Kind of like Mastodon, but worse.",
-				},
-			}
-
-			if *externalJS != "" {
-				data["CSSFiles"] = []string{}
-				data["JSFiles"] = []string{*externalJS}
-			}
-
-			rw.Header().Set("content-type", "text/html; charset=utf-8")
-			if err := templateReact.Execute(rw, data); err != nil {
-				panic(err)
-			}
-		}
-	})
+	m.Methods("GET").Path("/").HandlerFunc(a.handleHomeGet)
+	m.Methods("GET").Path("/login").HandlerFunc(a.handleLoginGet)
+	m.Methods("POST").Path("/login").HandlerFunc(a.handleLoginPost)
+	m.Methods("GET").Path("/register").HandlerFunc(a.handleRegisterGet)
+	m.Methods("POST").Path("/register").HandlerFunc(a.handleRegisterPost)
+	m.Methods("GET").Path("/logout").HandlerFunc(a.handleLogoutGet)
+	m.Methods("POST").Path("/logout").HandlerFunc(a.handleLogoutPost)
 
 	m.Methods("GET").Path("/show-feed").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		feed, err := AtomFetch(r.URL.Query().Get("url"))
