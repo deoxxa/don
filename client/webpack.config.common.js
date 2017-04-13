@@ -80,13 +80,13 @@ module.exports = {
         jpg: {
           use: [
             'url-loader?limit=10000&mimetype=image/jpeg',
-            'image-webpack-loader',
+            { loader: 'image-webpack-loader', query: {} },
           ],
         },
         png: {
           use: [
             'url-loader?limit=10000&mimetype=image/png',
-            'image-webpack-loader',
+            { loader: 'image-webpack-loader', query: {} },
           ],
         },
       }
