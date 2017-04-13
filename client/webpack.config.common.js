@@ -78,16 +78,10 @@ module.exports = {
           use: ['template-string-loader'],
         },
         jpg: {
-          use: [
-            'url-loader?limit=10000&mimetype=image/jpeg',
-            { loader: 'image-webpack-loader', query: {} },
-          ],
+          use: ['url-loader?limit=10000&mimetype=image/jpeg'],
         },
         png: {
-          use: [
-            'url-loader?limit=10000&mimetype=image/png',
-            { loader: 'image-webpack-loader', query: {} },
-          ],
+          use: ['url-loader?limit=10000&mimetype=image/png'],
         },
       }
     ),
