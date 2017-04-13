@@ -2,8 +2,10 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { Link } from 'react-router';
+import { Link, withRouter } from 'react-router';
+import { NavLink } from 'react-router-dom';
 
+import { publicTimelineFetch } from 'ducks/publicTimeline';
 import type { State as PublicTimelineState } from 'ducks/publicTimeline';
 
 import FontAwesome from 'components/FontAwesome';
@@ -11,35 +13,29 @@ import PublicTimelinePost from 'components/PublicTimelinePost';
 
 import styles from './styles.css';
 
-export class Home extends Component {
-  props: { publicTimeline: PublicTimelineState };
+class Home extends Component {
+  props: {
+    publicTimeline: PublicTimelineState,
+    publicTimelineFetch: () => Promise<void>,
+  };
+
+  componentDidMount() {
+    const { publicTimeline: { posts }, publicTimelineFetch } = this.props;
+
+    if (!Array.isArray(posts)) {
+      publicTimelineFetch();
+    }
+  }
 
   render() {
-    const { publicTimeline: { posts = [] } } = this.props;
+    const { publicTimeline: { posts } } = this.props;
 
     return (
       <div>
-        <form className={styles.form} method="get" action="/find-feed">
-          <label htmlFor={styles.userInput}>
-            Find a user anywhere in the fediverse!
-          </label>
-
-          <div>
-            <input
-              id={styles.userInput}
-              name="user"
-              type="text"
-              placeholder="e.g. your-username@your-provider.com"
-              required
-            />
-
-            <input type="submit" value="Search" />
-          </div>
-        </form>
-
         <p className={styles.blurb}>
           This is a <em>ridiculously</em> simple, read-only StatusNet node.
           Mostly an experiment.
+          {' '}
           <a href="https://www.fknsrs.biz/p/don">Source code is available</a>.
         </p>
 
@@ -54,4 +50,41 @@ export class Home extends Component {
   }
 }
 
-export default connect(({ publicTimeline }) => ({ publicTimeline }))(Home);
+Home.Link = withRouter(
+  connect(
+    ({ publicTimeline }: { publicTimeline: PublicTimelineState }) => ({
+      publicTimeline,
+    }),
+    { publicTimelineFetch }
+  )(({
+    history: { push },
+    publicTimeline: { posts },
+    publicTimelineFetch,
+    children,
+    ...rest
+  }: {
+    publicTimeline: PublicTimelineState,
+    history: { push: (path: string) => void },
+    publicTimelineFetch: () => Promise<void>,
+    children?: React.children,
+  }) => (
+    <NavLink
+      {...rest}
+      onClick={ev => {
+        ev.preventDefault();
+
+        if (Array.isArray(posts)) {
+          push('/');
+        } else {
+          publicTimelineFetch().then(() => push('/'));
+        }
+      }}
+    >
+      {children}
+    </NavLink>
+  ))
+);
+
+export default connect(({ publicTimeline }) => ({ publicTimeline }), {
+  publicTimelineFetch,
+})(Home);

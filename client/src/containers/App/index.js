@@ -1,6 +1,15 @@
 // @flow
 
 import React from 'react';
+import { Route } from 'react-router';
+import { NavLink } from 'react-router-dom';
+
+import Home from 'containers/Home';
+
+import Flash from 'components/Flash';
+import FontAwesome from 'components/FontAwesome';
+import Header from 'components/Header';
+import Inner from 'components/Inner';
 
 import styles from './styles.css';
 
@@ -10,17 +19,17 @@ const resume = 'https://www.fknsrs.biz/resume.html';
 
 const App = ({ children }: { children?: React.Children }) => (
   <div>
-    <header className={styles.header}>
-      <a className={styles.title} href="/">DON</a>
-    </header>
+    <Header />
 
-    <div className={styles.splash}>
-      Hi! <a href={website}>I'm Conrad</a> and <a href={blog}>I made DON</a>.
+    <Flash success>
+      Hi! <a href={website}>I'm Conrad</a>, and <a href={blog}>I made DON</a>.
       I'm also <a href={resume}>available for hire</a>!
-    </div>
+    </Flash>
 
-    <div className={styles.wrapper}>
-      {children}
+    <div className={styles.content}>
+      <Inner>
+        {children}
+      </Inner>
     </div>
   </div>
 );

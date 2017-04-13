@@ -1,0 +1,28 @@
+.link {
+  font-weight: bold;
+
+  display: inline-flex;
+  flex-direction: row;
+
+  transition: color .2s ease;
+  text-transform: uppercase;
+
+  color: inherit;
+
+  align-items: center;
+}
+
+.link:hover,
+.active {
+  transition: color .2s ease;
+
+  color: #afa;
+}
+
+.link + .link {
+  margin-left: .75em;
+}
+
+.icon {
+  margin-right: .5em;
+}

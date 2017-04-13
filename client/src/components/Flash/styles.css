@@ -1,0 +1,27 @@
+.flash {
+  padding: .5em .7em;
+
+  text-align: center;
+
+  background: #aaa;
+}
+
+.info {
+  background: #adf;
+}
+
+.success {
+  background: #afa;
+}
+
+.warning {
+  background: #fda;
+}
+
+.error {
+  background: #faa;
+}
+
+.onClick {
+  cursor: pointer;
+}

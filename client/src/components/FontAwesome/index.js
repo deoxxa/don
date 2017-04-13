@@ -2,7 +2,7 @@
 
 import classNames from 'classnames/bind';
 import styles from 'font-awesome/css/font-awesome.css';
-import React, { Component, PropTypes } from 'react';
+import React, { Component } from 'react';
 
 const cx = classNames.bind(styles);
 

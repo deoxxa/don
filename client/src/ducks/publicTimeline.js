@@ -1,5 +1,7 @@
 // @flow
 
+import axios from 'axios';
+
 export type Post = {
   id: string,
   authorName: ?string,
@@ -13,6 +15,19 @@ export type State = {
   posts: ?Array<Post>,
   error: ?Error,
 };
+
+export const publicTimelineFetch = () =>
+  dispatch => {
+    dispatch(publicTimelineLoading());
+
+    return axios
+      .get('/')
+      .then(
+        ({ data: { publicTimeline: { posts } } }) =>
+          dispatch(publicTimelineLoaded(posts)),
+        error => dispatch(publicTimelineError(error))
+      );
+  };
 
 export const publicTimelineError = (error: Error) => ({
   type: 'don/publicTimeline/ERROR',

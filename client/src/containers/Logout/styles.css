@@ -1,0 +1,18 @@
+.form {
+  text-align: center;
+}
+
+.fields {
+  display: inline-block;
+
+  width: 275px;
+  margin: auto;
+}
+
+.field {
+  display: flex;
+
+  margin: .5em;
+
+  justify-content: space-around;
+}

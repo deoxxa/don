@@ -1,0 +1,23 @@
+.form {
+  text-align: center;
+}
+
+.fields {
+  display: inline-block;
+
+  margin: auto;
+
+  text-align: center;
+}
+
+.fields > div {
+  margin-bottom: .5em;
+
+  text-align: right;
+}
+
+.fields label {
+  float: left;
+
+  margin-right: 1em;
+}

@@ -1,0 +1,37 @@
+.header {
+  position: relative;
+
+  padding: .5em 1em;
+
+  text-align: left;
+
+  color: #aaa;
+  background: #222;
+}
+
+.inner {
+  display: flex;
+  flex-direction: row;
+
+  align-items: center;
+  justify-content: space-between;
+}
+
+.loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  width: 0;
+  height: 2px;
+
+  transition: width .25s ease-in;
+
+  background: #f00;
+}
+
+.loadingActive {
+  width: 100%;
+
+  transition: width 1.5s ease-in-out;
+}
