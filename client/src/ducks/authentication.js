@@ -12,7 +12,7 @@ export type User = {
 
 export type State = {
   loading: boolean,
-  error: ?Error,
+  error: ?string,
   user: ?User,
 };
 
@@ -29,13 +29,22 @@ export const authenticationRegister = (
 
     dispatch(authenticationLoading());
 
-    return axios
-      .post('/register', params)
-      .then(
-        ({ data: { user } }: { data: { user: User } }) =>
-          dispatch(authenticationSuccess(user)),
-        err => dispatch(authenticationError(err))
+    return new Promise((resolve, reject) => {
+      axios.post('/register', params).then(
+        (
+          {
+            data: { authentication: { user } },
+          }: { data: { authentication: { user: User } } }
+        ) => {
+          dispatch(authenticationSuccess(user));
+          resolve();
+        },
+        err => {
+          dispatch(authenticationError(err));
+          reject(err);
+        }
       );
+    });
   };
 
 export const authenticationLogin = (username: string, password: string) =>
@@ -46,31 +55,67 @@ export const authenticationLogin = (username: string, password: string) =>
 
     dispatch(authenticationLoading());
 
-    return axios
-      .post('/login', params)
-      .then(
-        ({ data: { user } }: { data: { user: User } }) =>
-          dispatch(authenticationSuccess(user)),
-        err => dispatch(authenticationError(err))
+    return new Promise((resolve, reject) => {
+      axios.post('/login', params).then(
+        (
+          {
+            data: { authentication: { user } },
+          }: { data: { authentication: { user: User } } }
+        ) => {
+          dispatch(authenticationSuccess(user));
+          resolve();
+        },
+        err => {
+          dispatch(authenticationError(err));
+          reject(err);
+        }
       );
+    });
   };
 
 export const authenticationLogout = () =>
   (dispatch: (a: Object) => void) => {
     dispatch(authenticationLoading());
 
-    return axios
-      .post('/logout')
-      .then(
-        () => dispatch(authenticationReset()),
-        err => dispatch(authenticationError(err))
+    return new Promise((resolve, reject) => {
+      axios.post('/logout').then(
+        () => {
+          dispatch(authenticationReset());
+          resolve();
+        },
+        err => {
+          dispatch(authenticationError(err));
+          reject(err);
+        }
       );
+    });
   };
 
-export const authenticationError = (error: Error) => ({
-  type: 'don/authentication/ERROR',
-  payload: { error },
-});
+export const authenticationError = (error: Error | string) => {
+  let errorString = 'Unknown error';
+
+  if (typeof error === 'string') {
+    errorString = error;
+  }
+
+  if (error instanceof Error) {
+    if (
+      typeof error.response === 'object' &&
+      error.response !== null &&
+      typeof error.response.data === 'string'
+    ) {
+      errorString = error.response.data;
+    } else {
+      errorString = error + '';
+    }
+  }
+
+  return {
+    type: 'don/authentication/ERROR',
+    payload: { error: errorString },
+  };
+};
+
 export const authenticationLoading = () => ({
   type: 'don/authentication/LOADING',
   payload: {},

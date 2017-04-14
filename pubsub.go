@@ -207,7 +207,7 @@ func (c *PubSubClient) Handler() *PubSubHandler {
 			s, err := c.State.GetByID(id)
 			if err != nil {
 				l.WithError(err).Warn("pubsub: error fetching subscription during challenge")
-				return err
+				return errors.Wrap(err, "PubSubClient.Handler")
 			}
 
 			if s == nil {

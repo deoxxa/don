@@ -1,64 +1,85 @@
-package main // import "fknsrs.biz/p/don"
+package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"net/http"
-	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
 	"gopkg.in/hlandau/passlib.v1"
 )
 
-func (a *App) handleRegisterGet(rw http.ResponseWriter, r *http.Request) {
-	s, u, err := a.getSessionAndUserFromRequest(r)
-	if err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if err := s.Save(r, rw); err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if err := a.render(rw, r, "Register - DON", "Register a new account.", map[string]interface{}{
-		"authentication": map[string]interface{}{
-			"loading": false,
-			"error":   nil,
-			"user":    u,
-		},
-	}); err != nil {
-		logrus.WithError(err).Warn("handler: error sending response")
-	}
+func (a *App) handleRegisterGet(r *http.Request, ar *AppResponse) *AppResponse {
+	return ar.MergeMeta(map[string]string{
+		"Title":       "Register",
+		"Description": "Register a new account.",
+	})
 }
 
-func (a *App) handleRegisterPost(rw http.ResponseWriter, r *http.Request) {
+func (a *App) handleRegisterPost(r *http.Request, ar *AppResponse) *AppResponse {
+	ar = ar.MergeMeta(map[string]string{
+		"Title":       "Register",
+		"Description": "Register a new account.",
+	})
+
 	if err := r.ParseForm(); err != nil {
-		http.Error(rw, err.Error(), http.StatusBadRequest)
-		return
+		return ar.WithStatus(http.StatusBadRequest).WithError(errors.Wrap(err, "App.handleRegisterPost: couldn't parse form"))
 	}
 
-	username := r.Form.Get("username")
-	email := r.Form.Get("email")
-	password := r.Form.Get("password")
-	returnTo := r.Form.Get("return_to")
+	var v struct {
+		Email    string `schema:"email"`
+		Username string `schema:"username"`
+		Password string `schema:"password"`
+	}
+
+	if err := decoder.Decode(&v, r.PostForm); err != nil {
+		return ar.WithError(errors.Wrap(err, "App.handleRegisterPost: couldn't decode form fields"))
+	}
+
+	u, err := a.userRegister(v.Email, v.Username, v.Password)
+
+	if err != nil {
+		ar = ar.WithUser(nil).WithError(errors.Wrap(err, "App.handleRegisterPost: couldn't register user")).ShallowMergeState(map[string]interface{}{
+			"authentication": map[string]interface{}{
+				"loading": false,
+				"error":   err.Error(),
+				"user":    nil,
+			},
+		})
+
+		switch errors.Cause(err) {
+		case errUsernameDisallowed, errUsernameInvalid:
+			return ar.WithStatus(http.StatusForbidden)
+		case errRegisterUsernameAlreadyExists:
+			return ar.WithStatus(http.StatusConflict)
+		default:
+			return ar
+		}
+	}
+
+	return ar.MergeUserContext(u).WithRedirect(r.URL.Query().Get("return_to"))
+}
+
+var (
+	errRegisterUsernameAlreadyExists = errors.New("a user with that username already exists")
+)
+
+func (a *App) userRegister(email, username, password string) (*User, error) {
+	if err := VerifyUsername(username); err != nil {
+		return nil, errors.Wrap(err, "App.userRegister")
+	}
 
 	var id string
 	if err := a.DB.QueryRow("select id from users where username = $1 or email = $2", username, email).Scan(&id); err == nil {
-		http.Error(rw, "A user with that username or email already exists.", http.StatusConflict)
-		return
+		return nil, errors.Wrap(errRegisterUsernameAlreadyExists, "App.userRegister")
 	} else if err != sql.ErrNoRows {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, errors.Wrap(err, "App.userRegister")
 	}
 
 	hash, err := passlib.Hash(password)
 	if err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, errors.Wrap(err, "App.userRegister")
 	}
 
 	u := User{
@@ -69,38 +90,8 @@ func (a *App) handleRegisterPost(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := a.DB.Exec("insert into users (id, created_at, username, email, hash) values ($1, $2, $3, $4, $5)", u.ID, u.CreatedAt, u.Username, u.Email, hash); err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, errors.Wrap(err, "App.userRegister")
 	}
 
-	s, _, err := a.getSessionAndUserFromRequest(r)
-	if err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	s.Values["user_id"] = u.ID
-
-	if err := s.Save(r, rw); err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if strings.HasPrefix(returnTo, "/") {
-		http.Redirect(rw, r, returnTo, http.StatusSeeOther)
-		return
-	}
-
-	rw.Header().Set("content-type", "application/json; charset=utf8")
-	rw.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(rw).Encode(map[string]interface{}{
-		"authentication": map[string]interface{}{
-			"loading": false,
-			"error":   nil,
-			"user":    u,
-		},
-	}); err != nil {
-		logrus.WithError(err).Warn("handler: error sending response")
-	}
+	return &u, nil
 }

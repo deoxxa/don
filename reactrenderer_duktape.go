@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/olebedev/go-duktape"
+	"github.com/pkg/errors"
 )
 
 type ReactRendererDuktape struct {
@@ -28,7 +29,7 @@ func (r *ReactRendererDuktape) Render(code, inputURL, inputJSON string) (string,
 
 	if err := r.withVM(code, func(vm *duktape.Context) error {
 		if err := vm.PevalString("module.exports"); err != nil {
-			return err
+			return errors.Wrap(err, "ReactRendererDuktape.Render")
 		}
 
 		vm.PushString(inputURL)
@@ -41,7 +42,7 @@ func (r *ReactRendererDuktape) Render(code, inputURL, inputJSON string) (string,
 
 		return nil
 	}); err != nil {
-		return "", err
+		return "", errors.Wrap(err, "ReactRendererDuktape.Render")
 	}
 
 	return html, nil
@@ -82,11 +83,11 @@ func (r *ReactRendererDuktape) withVM(code string, fn func(vm *duktape.Context) 
 
 			module = { exports: null };
 		`); err != nil {
-			return err
+			return errors.Wrap(err, "ReactRendererDuktape.withVM")
 		}
 
 		if err := c.PevalString(code); err != nil {
-			return err
+			return errors.Wrap(err, "ReactRendererDuktape.withVM")
 		}
 
 		vm = &reactRendererDuktapeVM{code: code, vm: c}
@@ -95,7 +96,7 @@ func (r *ReactRendererDuktape) withVM(code string, fn func(vm *duktape.Context) 
 	if err := fn(vm.vm); err != nil {
 		vm.vm.DestroyHeap()
 		vm = nil
-		return err
+		return errors.Wrap(err, "ReactRendererDuktape.withVM")
 	}
 
 	return nil

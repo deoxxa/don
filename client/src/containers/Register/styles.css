@@ -1,3 +1,14 @@
+.heading {
+  text-align: center;
+}
+
+
+.error {
+  text-align: center;
+
+  color: #a00;
+}
+
 .form {
   text-align: center;
 }

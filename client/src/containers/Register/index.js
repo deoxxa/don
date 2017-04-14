@@ -1,6 +1,6 @@
 // @flow
 
-import React, { Component } from 'react';
+import React from 'react';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router';
 import { Link, NavLink } from 'react-router-dom';
@@ -16,74 +16,102 @@ import styles from './styles.css';
 
 const Register = (
   {
-    authentication: { user },
+    authenticationRegister,
+    authentication: { error, user },
     location,
+    history,
   }: {
+    authenticationRegister: (
+      email: string,
+      username: string,
+      password: string
+    ) => Promise<void>,
     authentication: AuthenticationState,
     location: { search: string },
+    history: { push: (path: string) => void },
   }
-) => (
-  <div>
-    {user
-      ? <h1>You are logged in as {user.username}.</h1>
-      : <form className={styles.form} action="/register" method="post">
-          <fieldset className={styles.fields}>
-            <legend>Register</legend>
+) => {
+  const returnTo = new URLSearchParams(location.search).get('return_to') || '/';
 
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor={styles.usernameInput}>
-                Username:
-              </label>
-              <input
-                id={styles.usernameInput}
-                name="username"
-                type="text"
-                required
-              />
-            </div>
+  return (
+    <div>
+      {error ? <h3 className={styles.error}>{error}</h3> : null}
 
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor={styles.emailInput}>
-                Email:
-              </label>
-              <input id={styles.emailInput} name="email" type="text" required />
-            </div>
+      {user
+        ? <h1 className={styles.heading}>
+            You are logged in as {user.username}.
+          </h1>
+        : <form
+            className={styles.form}
+            method="post"
+            action={`/register?return_to=${returnTo}`}
+            onSubmit={ev => {
+              ev.preventDefault();
 
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor={styles.passwordInput}>
-                Password:
-              </label>
-              <input
-                id={styles.passwordInput}
-                name="password"
-                type="password"
-                required
-              />
-            </div>
+              authenticationRegister(
+                ev.target[1].value,
+                ev.target[2].value,
+                ev.target[3].value
+              ).then(() => history.push(returnTo), err => null);
+            }}
+          >
+            <fieldset className={styles.fields}>
+              <legend>Register</legend>
 
-            <div className={styles.field}>
-              <input type="submit" value="Register" />
-            </div>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor={styles.emailInput}>
+                  Email:
+                </label>
+                <input
+                  id={styles.emailInput}
+                  name="email"
+                  type="email"
+                  required
+                />
+              </div>
 
-            <hr className={styles.line} />
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor={styles.usernameInput}>
+                  Username:
+                </label>
+                <input
+                  id={styles.usernameInput}
+                  name="username"
+                  type="text"
+                  required
+                />
+              </div>
 
-            <div className={styles.field}>
-              <span>
-                Already registered? <Link to="/login">Log in here.</Link>
-              </span>
-            </div>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor={styles.passwordInput}>
+                  Password:
+                </label>
+                <input
+                  id={styles.passwordInput}
+                  name="password"
+                  type="password"
+                  required
+                />
+              </div>
 
-            <input
-              type="hidden"
-              name="return_to"
-              value={
-                new URLSearchParams(location.search).get('return_to') || '/'
-              }
-            />
-          </fieldset>
-        </form>}
-  </div>
-);
+              <div className={styles.field}>
+                <input type="submit" value="Register" />
+              </div>
+
+              <hr className={styles.line} />
+
+              <div className={styles.field}>
+                <span>
+                  Already registered?
+                  {' '}
+                  <Link to={`/login?return_to=${returnTo}`}>Log in here.</Link>
+                </span>
+              </div>
+            </fieldset>
+          </form>}
+    </div>
+  );
+};
 
 export default connect(({ authentication }) => ({ authentication }), {
   authenticationRegister,

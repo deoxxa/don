@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/umisama/go-sqlbuilder"
 )
 
@@ -36,26 +37,26 @@ var (
 func savePerson(db *sql.DB, feedURL string, author *AtomAuthor) error {
 	tx, err := db.Begin()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "savePerson")
 	}
 	defer tx.Rollback()
 
 	if err := savePersonTx(tx, feedURL, author); err != nil {
-		return err
+		return errors.Wrap(err, "savePerson")
 	}
 
-	return tx.Commit()
+	return errors.Wrap(tx.Commit(), "savePerson")
 }
 
 func savePersonTx(tx *sql.Tx, feedURL string, author *AtomAuthor) error {
 	var name, displayName, email, summary, note string
 	if err := tx.QueryRow("select name, display_name, email, summary, note from people where feed_url = $1", feedURL).Scan(&name, &displayName, &email, &summary, &note); err != nil {
 		if err != sql.ErrNoRows {
-			return err
+			return errors.Wrap(err, "savePersonTx")
 		}
 
 		if _, err := tx.Exec("insert into people (feed_url, first_seen, name, display_name, email, summary, note) values ($1, $2, $3, $4, $5, $6, $7)", feedURL, time.Now(), author.Name, author.DisplayName, author.Email, author.Summary, author.Note); err != nil {
-			return err
+			return errors.Wrap(err, "savePersonTx")
 		}
 	} else {
 		if name == author.Name && displayName == author.DisplayName && email == author.Email && summary == author.Summary && note == author.Note {
@@ -63,7 +64,7 @@ func savePersonTx(tx *sql.Tx, feedURL string, author *AtomAuthor) error {
 		}
 
 		if _, err := tx.Exec("update people set name = $1, display_name = $2, email = $3, summary = $4, note = $5 where feed_url = $6", author.Name, author.DisplayName, author.Email, author.Summary, author.Note, feedURL); err != nil {
-			return err
+			return errors.Wrap(err, "savePersonTx")
 		}
 	}
 
@@ -73,21 +74,21 @@ func savePersonTx(tx *sql.Tx, feedURL string, author *AtomAuthor) error {
 func saveEntry(db *sql.DB, feedURL string, entry *AtomEntry) error {
 	tx, err := db.Begin()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "saveEntry")
 	}
 	defer tx.Rollback()
 
 	if err := saveEntryTx(tx, feedURL, entry); err != nil {
-		return err
+		return errors.Wrap(err, "saveEntry")
 	}
 
-	return tx.Commit()
+	return errors.Wrap(tx.Commit(), "saveEntry")
 }
 
 func saveEntryTx(tx *sql.Tx, feedURL string, entry *AtomEntry) error {
 	var exists int
 	if err := tx.QueryRow("select count(1) from posts where feed_url = $1 and id = $2", feedURL, entry.ID).Scan(&exists); err != nil {
-		return err
+		return errors.Wrap(err, "saveEntryTx")
 	}
 
 	if exists > 0 {
@@ -96,20 +97,20 @@ func saveEntryTx(tx *sql.Tx, feedURL string, entry *AtomEntry) error {
 
 	d, err := json.Marshal(entry)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "saveEntryTx")
 	}
 
 	if _, err := tx.Exec("insert into posts (feed_url, id, created_at, raw_entry, xml_entry) values ($1, $2, $3, $4, $5)", feedURL, entry.ID, entry.Published, string(d), entry.InnerXML); err != nil {
-		return err
+		return errors.Wrap(err, "saveEntryTx")
 	}
 
 	return nil
 }
 
 type getPublicTimelineArgs struct {
-	AfterID int `qstring:"after_id"`
-	Offset  int `qstring:"offset,omitempty"`
-	Limit   int `qstring:"limit,omitempty"`
+	AfterID int `schema:"after_id"`
+	Offset  int `schema:"offset,omitempty"`
+	Limit   int `schema:"limit,omitempty"`
 }
 
 func getPublicTimeline(db *sql.DB, args getPublicTimelineArgs) ([]UIStatus, error) {
@@ -141,12 +142,12 @@ func getPublicTimeline(db *sql.DB, args getPublicTimelineArgs) ([]UIStatus, erro
 
 	q, vars, err := qb.ToSql()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getPublicTimeline")
 	}
 
 	rows, err := db.Query(q, vars...)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getPublicTimeline")
 	}
 	defer rows.Close()
 
@@ -156,12 +157,12 @@ func getPublicTimeline(db *sql.DB, args getPublicTimelineArgs) ([]UIStatus, erro
 		var feedURL, rawEntry string
 		var name, displayName, email sql.NullString
 		if err := rows.Scan(&id, &feedURL, &rawEntry, &name, &displayName, &email); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "getPublicTimeline")
 		}
 
 		var entry AtomEntry
 		if err := json.Unmarshal([]byte(rawEntry), &entry); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "getPublicTimeline")
 		}
 
 		post := UIStatus{ID: id}
@@ -255,12 +256,12 @@ func getPosts(db *sql.DB, args getPostsArgs) ([]UIStatus, error) {
 
 	q, vars, err := qb.ToSql()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getPosts")
 	}
 
 	rows, err := db.Query(q, vars...)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getPosts")
 	}
 	defer rows.Close()
 
@@ -270,12 +271,12 @@ func getPosts(db *sql.DB, args getPostsArgs) ([]UIStatus, error) {
 		var feedURL, rawEntry string
 		var name, displayName, email sql.NullString
 		if err := rows.Scan(&id, &feedURL, &rawEntry, &name, &displayName, &email); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "getPosts")
 		}
 
 		var entry AtomEntry
 		if err := json.Unmarshal([]byte(rawEntry), &entry); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "getPosts")
 		}
 
 		post := UIStatus{ID: id}

@@ -13,6 +13,7 @@ import (
 	"github.com/GeertJohan/go.rice"
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
 	"github.com/gorilla/sessions"
 	"github.com/jtacoma/uritemplates"
 	_ "github.com/mattn/go-sqlite3"
@@ -37,6 +38,12 @@ var (
 	cookieSigningKey      = app.Flag("cookie_signing_key", "Key for signing cookies.").Envar("COOKIE_SIGNING_KEY").Required().HexBytes()
 	cookieEncryptionKey   = app.Flag("cookie_encryption_key", "Key for encrypting cookies.").Envar("COOKIE_ENCRYPTION_KEY").Required().HexBytes()
 )
+
+var decoder *schema.Decoder
+
+func init() {
+	decoder = schema.NewDecoder()
+}
 
 func main() {
 	kingpin.MustParse(app.Parse(os.Args[1:]))
@@ -164,13 +171,13 @@ func main() {
 
 	m.PathPrefix("/pubsub").Handler(psc.Handler())
 
-	m.Methods("GET").Path("/").HandlerFunc(a.handleHomeGet)
-	m.Methods("GET").Path("/login").HandlerFunc(a.handleLoginGet)
-	m.Methods("POST").Path("/login").HandlerFunc(a.handleLoginPost)
-	m.Methods("GET").Path("/register").HandlerFunc(a.handleRegisterGet)
-	m.Methods("POST").Path("/register").HandlerFunc(a.handleRegisterPost)
-	m.Methods("GET").Path("/logout").HandlerFunc(a.handleLogoutGet)
-	m.Methods("POST").Path("/logout").HandlerFunc(a.handleLogoutPost)
+	m.Methods("GET").Path("/").HandlerFunc(a.HandlerFor(a.handleHomeGet))
+	m.Methods("GET").Path("/login").HandlerFunc(a.HandlerFor(a.handleLoginGet))
+	m.Methods("POST").Path("/login").HandlerFunc(a.HandlerFor(a.handleLoginPost))
+	m.Methods("GET").Path("/register").HandlerFunc(a.HandlerFor(a.handleRegisterGet))
+	m.Methods("POST").Path("/register").HandlerFunc(a.HandlerFor(a.handleRegisterPost))
+	m.Methods("GET").Path("/logout").HandlerFunc(a.HandlerFor(a.handleLogoutGet))
+	m.Methods("POST").Path("/logout").HandlerFunc(a.HandlerFor(a.handleLogoutPost))
 
 	m.Methods("GET").Path("/show-feed").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		feed, err := AtomFetch(r.URL.Query().Get("url"))

@@ -86,7 +86,7 @@ func (a *App) OnMessage(id string, s *PubSubSubscription, rd io.ReadCloser) {
 func (a *App) getSessionAndUserFromRequest(r *http.Request) (*sessions.Session, *User, error) {
 	s, err := a.Store.Get(r, "login")
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "App.getSessionAndUserFromRequest")
 	}
 
 	userIDValue, ok := s.Values["user_id"]
@@ -102,50 +102,120 @@ func (a *App) getSessionAndUserFromRequest(r *http.Request) (*sessions.Session, 
 	var u User
 	if err := a.DB.QueryRow("select id, created_at, username, email, display_name, avatar from users where id = $1", userID).Scan(&u.ID, &u.CreatedAt, &u.Username, &u.Email, &u.DisplayName, &u.Avatar); err != nil {
 		if err == sql.ErrNoRows {
-			return s, nil, err
+			return s, nil, nil
 		}
 
-		return s, nil, err
+		return s, nil, errors.Wrap(err, "App.getSessionAndUserFromRequest")
 	}
 
 	return s, &u, nil
 }
 
-func (a *App) render(rw http.ResponseWriter, r *http.Request, title, description string, initialState map[string]interface{}) error {
-	if title == "" {
-		title = "DON"
-	}
-	if description == "" {
-		description = "A very basic StatusNet node. Kind of like Mastodon, but worse."
-	}
+type AppHandlerFunc func(r *http.Request, ar *AppResponse) *AppResponse
 
-	d, err := json.Marshal(initialState)
+func (a *App) HandlerFor(fn AppHandlerFunc) http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		ar, err := a.StandardContext(rw, r)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if err := a.SendResponse(rw, r, fn(r, ar)); err != nil {
+			logrus.WithError(err).Warn("error sending response")
+		}
+	}
+}
+
+func (a *App) StandardContext(rw http.ResponseWriter, r *http.Request) (*AppResponse, error) {
+	s, u, err := a.getSessionAndUserFromRequest(r)
 	if err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return err
+		return nil, errors.Wrap(err, "App.StandardContext")
 	}
 
+	return NewAppResponse().WithSession(s).WithUser(u).ShallowMergeState(map[string]interface{}{
+		"authentication": map[string]interface{}{
+			"loading": false,
+			"error":   nil,
+			"user":    u,
+		},
+	}), nil
+}
+
+func (a *App) SendResponse(rw http.ResponseWriter, r *http.Request, ar *AppResponse) error {
 	acceptable := accept.Parse(r.Header.Get("accept"))
 
 	ct, err := acceptable.Negotiate("text/html", "application/json")
 	if err != nil {
+		ar = ar.WithError(err)
+	}
+
+	if ar.Session != nil {
+		if ar.User == nil {
+			delete(ar.Session.Values, "user_id")
+		} else {
+			ar.Session.Values["user_id"] = ar.User.ID
+		}
+
+		if err := ar.Session.Save(r, rw); err != nil {
+			ar = ar.WithError(err)
+		}
+	}
+
+	if ar.Error != nil {
+		ar = ar.ShallowMergeState(map[string]interface{}{
+			"server": map[string]interface{}{
+				"error": ar.Error.Error(),
+			},
+		})
+	} else {
+		ar = ar.ShallowMergeState(map[string]interface{}{
+			"server": map[string]interface{}{
+				"error": nil,
+			},
+		})
+	}
+
+	if ar.Error != nil && ct == "application/json" {
+		status := http.StatusSeeOther
+		if ar.Status != 0 {
+			status = ar.Status
+		}
+
+		http.Error(rw, ar.Error.Error(), status)
+		return nil
+	}
+
+	if ar.Redirect != "" && (ct == "text/html" || ct == "") {
+		status := http.StatusSeeOther
+		if ar.Status != 0 {
+			status = ar.Status
+		}
+
+		http.Redirect(rw, r, ar.Redirect, status)
+		return nil
+	}
+
+	d, err := json.Marshal(ar.State)
+	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return err
+		return errors.Wrap(err, "App.render")
 	}
 
 	switch ct {
 	case "application/json":
 		rw.Header().Set("content-type", "application/json; charset=utf8")
-		if _, err := io.Copy(rw, bytes.NewReader(d)); err != nil {
-			return err
+		if ar.Status != 0 {
+			rw.WriteHeader(ar.Status)
 		}
-
-		return nil
+		if _, err := io.Copy(rw, bytes.NewReader(d)); err != nil {
+			return errors.Wrap(err, "App.render")
+		}
 	case "text/html", "":
 		html, err := a.Renderer.Render(a.BuildBox.MustString("entry-server-bundle.js"), r.URL.String(), string(d))
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return err
+			return errors.Wrap(err, "App.render")
 		}
 
 		data := map[string]interface{}{
@@ -154,8 +224,8 @@ func (a *App) render(rw http.ResponseWriter, r *http.Request, title, description
 			"CSSFiles": []string{"/build/vendor-styles.css", "/build/entry-client-styles.css"},
 			"JSFiles":  []string{"/build/vendor-bundle.js", "/build/entry-client-bundle.js"},
 			"Meta": map[string]interface{}{
-				"Title":       title,
-				"Description": description,
+				"Title":       ar.GetMeta("title", "DON"),
+				"Description": ar.GetMeta("description", "A very basic StatusNet node. Kind of like Mastodon, but worse."),
 			},
 		}
 
@@ -165,11 +235,12 @@ func (a *App) render(rw http.ResponseWriter, r *http.Request, title, description
 		}
 
 		rw.Header().Set("content-type", "text/html; charset=utf-8")
-		if a.Template.Execute(rw, data); err != nil {
-			return err
+		if ar.Status != 0 {
+			rw.WriteHeader(ar.Status)
 		}
-
-		return nil
+		if a.Template.Execute(rw, data); err != nil {
+			return errors.Wrap(err, "App.render")
+		}
 	}
 
 	return nil

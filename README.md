@@ -120,8 +120,33 @@ the client JS should kick in and fix it up.
 When this is running, you'll be able to save files and have the content in the
 browser update automatically. This makes working on client stuff *much* nicer.
 
+## Code Style
+
+The main idea for the code style in this project is that it should be
+automated. Not just automatically checked, but automatically applied. No
+bikeshedding, no suggestions, no discussions. Computer is always right.
+
+For go, use [gofmt](https://golang.org/cmd/gofmt/).
+
+For JavaScript, use [prettier](https://github.com/prettier/prettier) with
+`--single-quote` and `--trailing-comma es5`.
+
+For CSS, use [csscomb](http://csscomb.com/) with the config provided in
+`client/.csscomb.json`.
+
+For shell scripts, use [shfmt](https://github.com/mvdan/sh) with `-i 2`.
+
 ## Acknowledgements
 
 Some included icons were made by [Freepik](http://www.freepik.com) at
 [Flaticon](http://www.flaticon.com), which were shared under the [CC 3.0
 BY](http://creativecommons.org/licenses/by/3.0/) Creative Commons license.
+
+The included username blacklist is based on [The Big Username
+Blacklist](https://github.com/marteinn/The-Big-Username-Blacklist) by [Martin
+Sandström](http://marteinn.se/), which was provided under the MIT license.
+
+Some code for serialising forms was adapted from
+[freiform](https://github.com/mechanoid/freiform) by [Falk
+Hoppe](https://github.com/mechanoid), which was provided under the Apache
+License 2.0.

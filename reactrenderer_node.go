@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os/exec"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 type ReactRendererNode struct {
@@ -32,20 +34,20 @@ func (r *ReactRendererNode) Render(code, inputURL, inputJSON string) (string, er
 	if err := r.withProcess(code, func(addr string) error {
 		res, err := http.Post("http://"+addr+inputURL, "application/json", strings.NewReader(inputJSON))
 		if err != nil {
-			return err
+			return errors.Wrap(err, "ReactRendererDuktape.Render")
 		}
 		defer res.Body.Close()
 
 		d, err := ioutil.ReadAll(res.Body)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "ReactRendererDuktape.Render")
 		}
 
 		html = string(d)
 
 		return nil
 	}); err != nil {
-		return "", err
+		return "", errors.Wrap(err, "ReactRendererDuktape.Render")
 	}
 
 	return html, nil
@@ -65,7 +67,7 @@ func (r *ReactRendererNode) withProcess(code string, fn func(addr string) error)
 
 	if proc != nil && proc.code != code {
 		if err := proc.proc.Process.Kill(); err != nil {
-			return err
+			return errors.Wrap(err, "ReactRendererDuktape.withProcess")
 		}
 
 		proc = nil
@@ -74,31 +76,31 @@ func (r *ReactRendererNode) withProcess(code string, fn func(addr string) error)
 	if proc == nil {
 		fd, err := ioutil.TempFile("", "react-render-server")
 		if err != nil {
-			return err
+			return errors.Wrap(err, "ReactRendererDuktape.withProcess")
 		}
 		defer fd.Close()
 
 		if _, err := io.Copy(fd, strings.NewReader(code+"\n"+reactRendererNodeServer)); err != nil {
-			return err
+			return errors.Wrap(err, "ReactRendererDuktape.withProcess")
 		}
 
 		c := exec.Command("node", fd.Name())
 
 		out, err := c.StdoutPipe()
 		if err != nil {
-			return err
+			return errors.Wrap(err, "ReactRendererDuktape.withProcess")
 		}
 
 		rd := bufio.NewReader(out)
 
 		if err := c.Start(); err != nil {
-			return err
+			return errors.Wrap(err, "ReactRendererDuktape.withProcess")
 		}
 
 		s, err := rd.ReadString('\n')
 		if err != nil {
 			c.Process.Kill()
-			return err
+			return errors.Wrap(err, "ReactRendererDuktape.withProcess")
 		}
 
 		proc = &reactRendererNodeProc{code: code, addr: strings.TrimSpace(s), proc: c}
@@ -107,7 +109,7 @@ func (r *ReactRendererNode) withProcess(code string, fn func(addr string) error)
 	if err := fn(proc.addr); err != nil {
 		proc.proc.Process.Kill()
 		proc = nil
-		return err
+		return errors.Wrap(err, "ReactRendererDuktape.withProcess")
 	}
 
 	return nil
