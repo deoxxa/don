@@ -120,9 +120,9 @@ the client JS should kick in and fix it up.
 When this is running, you'll be able to save files and have the content in the
 browser update automatically. This makes working on client stuff *much* nicer.
 
-## Code Style
+## Code Formatting
 
-The main idea for the code style in this project is that it should be
+The main idea for the code formatting in this project is that it should be
 automated. Not just automatically checked, but automatically applied. No
 bikeshedding, no suggestions, no discussions. Computer is always right.
 
@@ -135,6 +135,23 @@ For CSS, use [csscomb](http://csscomb.com/) with the config provided in
 `client/.csscomb.json`.
 
 For shell scripts, use [shfmt](https://github.com/mvdan/sh) with `-i 2`.
+
+## Code Analysis
+
+There are a couple of tools in use right now to do some static analysis on the
+application's code. I expect that this list will grow in time.
+
+[ESLint](http://eslint.org/) is a linter, and in this case it's used to catch
+some basic logic errors. It is _not_ used for detecting problems with or
+enforcing a formatting style. That is handled by `prettier` in the "Code
+Formatting" section.
+
+[Flow](https://flow.org/) is a static analysis and gradual type engine for
+JavaScript. I'm not aiming for 100% coverage with Flow - I'm just using it to
+help catch really obvious bugs (e.g. accessing properties on null/undefined).
+
+`flow-report` (in `client/flow-report.js`) is used to make an HTML report (in
+`client/coverage/flow`) from the coverage data Flow can produce.
 
 ## Acknowledgements
 
