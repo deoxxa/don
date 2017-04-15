@@ -1,4 +1,4 @@
-package main
+package react
 
 import (
 	"fmt"
@@ -7,53 +7,53 @@ import (
 	"github.com/pkg/errors"
 )
 
-type ReactRendererDuktape struct {
+type DuktapeRenderer struct {
 	count int
-	vms   chan *reactRendererDuktapeVM
+	vms   chan *duktapeVM
 }
 
-func NewReactRendererDuktape(count int) *ReactRendererDuktape {
-	vms := make(chan *reactRendererDuktapeVM, count)
+func NewDuktapeRenderer(count int) *DuktapeRenderer {
+	vms := make(chan *duktapeVM, count)
 	for i := 0; i < count; i++ {
 		vms <- nil
 	}
 
-	return &ReactRendererDuktape{
+	return &DuktapeRenderer{
 		count: count,
 		vms:   vms,
 	}
 }
 
-func (r *ReactRendererDuktape) Render(code, inputURL, inputJSON string) (string, error) {
+func (r *DuktapeRenderer) Render(code, inputURL, inputJSON string) (string, error) {
 	var html string
 
 	if err := r.withVM(code, func(vm *duktape.Context) error {
 		if err := vm.PevalString("module.exports"); err != nil {
-			return errors.Wrap(err, "ReactRendererDuktape.Render")
+			return errors.Wrap(err, "DuktapeRenderer.Render")
 		}
 
 		vm.PushString(inputURL)
 		vm.PushString(inputJSON)
 		if rc := vm.Pcall(2); rc != 0 {
-			return fmt.Errorf("ReactRendererDuktape.Render: error rendering app: %s", vm.SafeToString(-1))
+			return fmt.Errorf("DuktapeRenderer.Render: error rendering app: %s", vm.SafeToString(-1))
 		}
 		html = vm.SafeToString(-1)
 		vm.Pop()
 
 		return nil
 	}); err != nil {
-		return "", errors.Wrap(err, "ReactRendererDuktape.Render")
+		return "", errors.Wrap(err, "DuktapeRenderer.Render")
 	}
 
 	return html, nil
 }
 
-type reactRendererDuktapeVM struct {
+type duktapeVM struct {
 	vm   *duktape.Context
 	code string
 }
 
-func (r *ReactRendererDuktape) withVM(code string, fn func(vm *duktape.Context) error) error {
+func (r *DuktapeRenderer) withVM(code string, fn func(vm *duktape.Context) error) error {
 	vm := <-r.vms
 	defer func() {
 		r.vms <- vm
@@ -83,20 +83,20 @@ func (r *ReactRendererDuktape) withVM(code string, fn func(vm *duktape.Context) 
 
 			module = { exports: null };
 		`); err != nil {
-			return errors.Wrap(err, "ReactRendererDuktape.withVM")
+			return errors.Wrap(err, "DuktapeRenderer.withVM")
 		}
 
 		if err := c.PevalString(code); err != nil {
-			return errors.Wrap(err, "ReactRendererDuktape.withVM")
+			return errors.Wrap(err, "DuktapeRenderer.withVM")
 		}
 
-		vm = &reactRendererDuktapeVM{code: code, vm: c}
+		vm = &duktapeVM{code: code, vm: c}
 	}
 
 	if err := fn(vm.vm); err != nil {
 		vm.vm.DestroyHeap()
 		vm = nil
-		return errors.Wrap(err, "ReactRendererDuktape.withVM")
+		return errors.Wrap(err, "DuktapeRenderer.withVM")
 	}
 
 	return nil

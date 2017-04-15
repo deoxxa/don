@@ -7,6 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/umisama/go-sqlbuilder"
+
+	"fknsrs.biz/p/don/activitystreams"
 )
 
 var (
@@ -34,7 +36,7 @@ var (
 	)
 )
 
-func savePerson(db *sql.DB, feedURL string, author *AtomAuthor) error {
+func savePerson(db *sql.DB, feedURL string, author *activitystreams.Author) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "savePerson")
@@ -48,7 +50,7 @@ func savePerson(db *sql.DB, feedURL string, author *AtomAuthor) error {
 	return errors.Wrap(tx.Commit(), "savePerson")
 }
 
-func savePersonTx(tx *sql.Tx, feedURL string, author *AtomAuthor) error {
+func savePersonTx(tx *sql.Tx, feedURL string, author *activitystreams.Author) error {
 	var name, displayName, email, summary, note string
 	if err := tx.QueryRow("select name, display_name, email, summary, note from people where feed_url = $1", feedURL).Scan(&name, &displayName, &email, &summary, &note); err != nil {
 		if err != sql.ErrNoRows {
@@ -71,7 +73,7 @@ func savePersonTx(tx *sql.Tx, feedURL string, author *AtomAuthor) error {
 	return nil
 }
 
-func saveEntry(db *sql.DB, feedURL string, entry *AtomEntry) error {
+func saveEntry(db *sql.DB, feedURL string, entry *activitystreams.Object) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "saveEntry")
@@ -85,7 +87,7 @@ func saveEntry(db *sql.DB, feedURL string, entry *AtomEntry) error {
 	return errors.Wrap(tx.Commit(), "saveEntry")
 }
 
-func saveEntryTx(tx *sql.Tx, feedURL string, entry *AtomEntry) error {
+func saveEntryTx(tx *sql.Tx, feedURL string, entry *activitystreams.Object) error {
 	var exists int
 	if err := tx.QueryRow("select count(1) from posts where feed_url = $1 and id = $2", feedURL, entry.ID).Scan(&exists); err != nil {
 		return errors.Wrap(err, "saveEntryTx")
@@ -160,7 +162,7 @@ func getPublicTimeline(db *sql.DB, args getPublicTimelineArgs) ([]UIStatus, erro
 			return nil, errors.Wrap(err, "getPublicTimeline")
 		}
 
-		var entry AtomEntry
+		var entry activitystreams.Object
 		if err := json.Unmarshal([]byte(rawEntry), &entry); err != nil {
 			return nil, errors.Wrap(err, "getPublicTimeline")
 		}
@@ -274,7 +276,7 @@ func getPosts(db *sql.DB, args getPostsArgs) ([]UIStatus, error) {
 			return nil, errors.Wrap(err, "getPosts")
 		}
 
-		var entry AtomEntry
+		var entry activitystreams.Object
 		if err := json.Unmarshal([]byte(rawEntry), &entry); err != nil {
 			return nil, errors.Wrap(err, "getPosts")
 		}

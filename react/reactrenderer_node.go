@@ -1,4 +1,4 @@
-package main
+package react
 
 import (
 	"bufio"
@@ -11,24 +11,24 @@ import (
 	"github.com/pkg/errors"
 )
 
-type ReactRendererNode struct {
+type NodeJSRenderer struct {
 	count int
-	procs chan *reactRendererNodeProc
+	procs chan *nodeProcess
 }
 
-func NewReactRendererNode(count int) *ReactRendererNode {
-	procs := make(chan *reactRendererNodeProc, count)
+func NewNodeJSRenderer(count int) *NodeJSRenderer {
+	procs := make(chan *nodeProcess, count)
 	for i := 0; i < count; i++ {
 		procs <- nil
 	}
 
-	return &ReactRendererNode{
+	return &NodeJSRenderer{
 		count: count,
 		procs: procs,
 	}
 }
 
-func (r *ReactRendererNode) Render(code, inputURL, inputJSON string) (string, error) {
+func (r *NodeJSRenderer) Render(code, inputURL, inputJSON string) (string, error) {
 	var html string
 
 	if err := r.withProcess(code, func(addr string) error {
@@ -53,13 +53,13 @@ func (r *ReactRendererNode) Render(code, inputURL, inputJSON string) (string, er
 	return html, nil
 }
 
-type reactRendererNodeProc struct {
+type nodeProcess struct {
 	code string
 	proc *exec.Cmd
 	addr string
 }
 
-func (r *ReactRendererNode) withProcess(code string, fn func(addr string) error) error {
+func (r *NodeJSRenderer) withProcess(code string, fn func(addr string) error) error {
 	proc := <-r.procs
 	defer func() {
 		r.procs <- proc
@@ -103,7 +103,7 @@ func (r *ReactRendererNode) withProcess(code string, fn func(addr string) error)
 			return errors.Wrap(err, "ReactRendererDuktape.withProcess")
 		}
 
-		proc = &reactRendererNodeProc{code: code, addr: strings.TrimSpace(s), proc: c}
+		proc = &nodeProcess{code: code, addr: strings.TrimSpace(s), proc: c}
 	}
 
 	if err := fn(proc.addr); err != nil {

@@ -1,5 +1,5 @@
-package main
+package react
 
-type ReactRenderer interface {
+type Renderer interface {
 	Render(code, inputURL, inputJSON string) (output string, err error)
 }

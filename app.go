@@ -16,22 +16,26 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/pkg/errors"
 	"github.com/timewasted/go-accept-headers"
+
+	"fknsrs.biz/p/don/activitystreams"
+	"fknsrs.biz/p/don/pubsub"
+	"fknsrs.biz/p/don/react"
 )
 
 type App struct {
 	DB       *sql.DB
 	Store    sessions.Store
-	Renderer ReactRenderer
+	Renderer react.Renderer
 	Template *template.Template
 	BuildBox *rice.Box
 }
 
-func NewApp(db *sql.DB, store sessions.Store, renderer ReactRenderer, template *template.Template, buildBox *rice.Box) (*App, error) {
+func NewApp(db *sql.DB, store sessions.Store, renderer react.Renderer, template *template.Template, buildBox *rice.Box) (*App, error) {
 	return &App{DB: db, Store: store, Renderer: renderer, Template: template, BuildBox: buildBox}, nil
 }
 
-func (a *App) OnMessage(id string, s *PubSubSubscription, rd io.ReadCloser) {
-	var v AtomFeed
+func (a *App) OnMessage(id string, s *pubsub.Subscription, rd io.ReadCloser) {
+	var v activitystreams.Feed
 
 	if *recordDocuments {
 		d, err := ioutil.ReadAll(rd)

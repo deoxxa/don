@@ -1,4 +1,4 @@
-package main
+package pubsub
 
 import (
 	"io"
@@ -13,13 +13,15 @@ import (
 	"github.com/juju/ratelimit"
 	"github.com/pkg/errors"
 	"github.com/tomnomnom/linkheader"
+
+	"fknsrs.biz/p/don/workergroup"
 )
 
-func PubSubMakeCallbackURL(baseURL, id string) string {
+func MakeCallbackURL(baseURL, id string) string {
 	return baseURL + "/" + id
 }
 
-type PubSubSubscription struct {
+type Subscription struct {
 	ID          string
 	Hub         string
 	Topic       string
@@ -29,35 +31,35 @@ type PubSubSubscription struct {
 	ExpiresAt   *time.Time
 }
 
-type PubSubState interface {
-	All() (subscriptions []PubSubSubscription, err error)
-	Add(hub, topic, baseURL string) (subscription *PubSubSubscription, oldCallbackURL string, err error)
-	Get(hub, topic string) (subscription *PubSubSubscription, err error)
-	GetByID(id string) (subscription *PubSubSubscription, err error)
+type State interface {
+	All() (subscriptions []Subscription, err error)
+	Add(hub, topic, baseURL string) (subscription *Subscription, oldCallbackURL string, err error)
+	Get(hub, topic string) (subscription *Subscription, err error)
+	GetByID(id string) (subscription *Subscription, err error)
 	Set(hub, topic string, updatedAt, expiresAt time.Time) (err error)
 	Del(hub, topic string) (err error)
 }
 
-type PubSubMessageHandler func(id string, s *PubSubSubscription, rd io.ReadCloser)
+type MessageHandler func(id string, s *Subscription, rd io.ReadCloser)
 
-type PubSubClient struct {
+type Client struct {
 	CallbackURL string
-	State       PubSubState
-	OnMessage   PubSubMessageHandler
+	State       State
+	OnMessage   MessageHandler
 }
 
-func NewPubSubClient(callbackURL string, state PubSubState, onMessage PubSubMessageHandler) *PubSubClient {
-	return &PubSubClient{
+func NewClient(callbackURL string, state State, onMessage MessageHandler) *Client {
+	return &Client{
 		CallbackURL: callbackURL,
 		State:       state,
 		OnMessage:   onMessage,
 	}
 }
 
-func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
+func (c *Client) Refresh(forceUpdate bool, interval time.Duration) error {
 	a, err := c.State.All()
 	if err != nil {
-		return errors.Wrap(err, "PubSubClient.Refresh")
+		return errors.Wrap(err, "Client.Refresh")
 	}
 
 	logrus.WithField("count", len(a)).Debug("pubsub: got subscriptions to refresh")
@@ -85,7 +87,7 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 		return m[host]
 	}
 
-	var g WorkerGroup
+	var g workergroup.Group
 
 	n := 0
 
@@ -115,10 +117,10 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 			u, err := url.Parse(e.Hub)
 			if err != nil {
 				l.WithError(err).Warn("pubsub: couldn't parse hub url")
-				return errors.Wrap(err, "PubSubClient.RefreshWorker")
+				return errors.Wrap(err, "Client.RefreshWorker")
 			}
 
-			dur, ok := getBucket(u.Host).TakeMaxDuration(1, *pubsubRefreshInterval)
+			dur, ok := getBucket(u.Host).TakeMaxDuration(1, interval)
 			if !ok {
 				l.Debug("pubsub: skipping renewing for now as we'd have to wait too long")
 				continue
@@ -136,7 +138,7 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 
 				if err := c.Subscribe(e.Hub, e.Topic); err != nil {
 					l.WithError(err).Warn("pubsub: couldn't subscribe to topic")
-					return errors.Wrap(err, "PubSubClient.RefreshWorker")
+					return errors.Wrap(err, "Client.RefreshWorker")
 				}
 
 				l.Debug("pubsub: subscribed successfully")
@@ -145,55 +147,55 @@ func (c *PubSubClient) Refresh(forceUpdate bool, interval time.Duration) error {
 		}
 	}
 
-	return errors.Wrap(g.Run(n), "PubSubClient.Refresh")
+	return errors.Wrap(g.Run(n), "Client.Refresh")
 }
 
-func (c *PubSubClient) Subscribe(hub, topic string) error {
+func (c *Client) Subscribe(hub, topic string) error {
 	logrus.WithFields(logrus.Fields{"hub": hub, "topic": topic}).Debug("pubsub: subscribing")
 
 	s, oldCallbackURL, err := c.State.Add(hub, topic, c.CallbackURL)
 	if err != nil {
-		return errors.Wrap(err, "PubSubClient.Subscribe")
+		return errors.Wrap(err, "Client.Subscribe")
 	}
 
 	if oldCallbackURL != s.CallbackURL {
 		if oldCallbackURL != "" {
-			if err := PubSubUnsubscribe(hub, topic, oldCallbackURL); err != nil {
-				return errors.Wrap(err, "PubSubClient.Subscribe")
+			if err := Unsubscribe(hub, topic, oldCallbackURL); err != nil {
+				return errors.Wrap(err, "Client.Subscribe")
 			}
 		}
 
-		if err := PubSubSubscribe(hub, topic, s.CallbackURL); err != nil {
-			return errors.Wrap(err, "PubSubClient.Subscribe")
+		if err := Subscribe(hub, topic, s.CallbackURL); err != nil {
+			return errors.Wrap(err, "Client.Subscribe")
 		}
 	}
 
 	return nil
 }
 
-func (c *PubSubClient) Unsubscribe(hub, topic string) error {
+func (c *Client) Unsubscribe(hub, topic string) error {
 	logrus.WithFields(logrus.Fields{"hub": hub, "topic": topic}).Debug("pubsub: unsubscribing")
 
 	s, err := c.State.Get(hub, topic)
 	if err != nil {
-		return errors.Wrap(err, "PubSubClient.Unsubscribe")
+		return errors.Wrap(err, "Client.Unsubscribe")
 	}
 
 	if s != nil {
-		if err := PubSubUnsubscribe(hub, topic, s.CallbackURL); err != nil {
-			return errors.Wrap(err, "PubSubClient.Unsubscribe")
+		if err := Unsubscribe(hub, topic, s.CallbackURL); err != nil {
+			return errors.Wrap(err, "Client.Unsubscribe")
 		}
 
 		if err := c.State.Del(s.Hub, s.Topic); err != nil {
-			return errors.Wrap(err, "PubSubClient.Unsubscribe")
+			return errors.Wrap(err, "Client.Unsubscribe")
 		}
 	}
 
 	return nil
 }
 
-func (c *PubSubClient) Handler() *PubSubHandler {
-	return &PubSubHandler{
+func (c *Client) Handler() *Handler {
+	return &Handler{
 		OnChallenge: func(id, topic, mode string, leaseTime time.Duration) error {
 			l := logrus.WithFields(logrus.Fields{
 				"id":         id,
@@ -207,15 +209,15 @@ func (c *PubSubClient) Handler() *PubSubHandler {
 			s, err := c.State.GetByID(id)
 			if err != nil {
 				l.WithError(err).Warn("pubsub: error fetching subscription during challenge")
-				return errors.Wrap(err, "PubSubClient.Handler")
+				return errors.Wrap(err, "Client.Handler")
 			}
 
 			if s == nil {
 				l.WithError(err).Warn("pubsub: subscription not found during challenge")
-				return errors.Errorf("PubSubClient.Handler: subscription not found")
+				return errors.Errorf("Client.Handler: subscription not found")
 			}
 
-			return errors.Wrap(c.State.Set(s.Hub, s.Topic, time.Now(), time.Now().Add(leaseTime)), "PubSubClient.Handler")
+			return errors.Wrap(c.State.Set(s.Hub, s.Topic, time.Now(), time.Now().Add(leaseTime)), "Client.Handler")
 		},
 		OnMessage: func(id, topic string, rd io.ReadCloser) {
 			l := logrus.WithFields(logrus.Fields{
@@ -240,7 +242,7 @@ func (c *PubSubClient) Handler() *PubSubHandler {
 	}
 }
 
-func PubSubAlter(hub, topic, callbackURL, mode string) error {
+func Alter(hub, topic, callbackURL, mode string) error {
 	f := url.Values{
 		"hub.callback":      []string{callbackURL},
 		"hub.mode":          []string{mode},
@@ -251,31 +253,31 @@ func PubSubAlter(hub, topic, callbackURL, mode string) error {
 
 	res, err := http.PostForm(hub, f)
 	if err != nil {
-		return errors.Wrap(err, "PubSubAlter")
+		return errors.Wrap(err, "Alter")
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return errors.Errorf("PubSubAlter: invalid status code; expected 2xx but got %d", res.StatusCode)
+		return errors.Errorf("Alter: invalid status code; expected 2xx but got %d", res.StatusCode)
 	}
 
 	return nil
 }
 
-func PubSubSubscribe(hub, topic, callbackURL string) error {
-	return errors.Wrap(PubSubAlter(hub, topic, callbackURL, "subscribe"), "PubSubSubscribe")
+func Subscribe(hub, topic, callbackURL string) error {
+	return errors.Wrap(Alter(hub, topic, callbackURL, "subscribe"), "Subscribe")
 }
 
-func PubSubUnsubscribe(hub, topic, callbackURL string) error {
-	return errors.Wrap(PubSubAlter(hub, topic, callbackURL, "unsubscribe"), "PubSubSubscribe")
+func Unsubscribe(hub, topic, callbackURL string) error {
+	return errors.Wrap(Alter(hub, topic, callbackURL, "unsubscribe"), "Subscribe")
 }
 
-type PubSubHandler struct {
+type Handler struct {
 	OnChallenge func(id, topic, mode string, leaseTime time.Duration) error
 	OnMessage   func(id, topic string, rd io.ReadCloser)
 }
 
-func (h *PubSubHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+func (h *Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 
 	bits := strings.Split(r.URL.Path, "/")

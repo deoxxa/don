@@ -1,4 +1,4 @@
-package main
+package webfinger
 
 import (
 	"encoding/json"
@@ -10,34 +10,34 @@ import (
 	"github.com/pkg/errors"
 )
 
-var ErrWebfingerNotFound = errors.New("Webfinger: resource not found")
+var ErrNotFound = errors.New("Webfinger: resource not found")
 
-func WebfingerMakeURL(domain, resource string, rel []string) string {
+func MakeURL(domain, resource string, rel []string) string {
 	return "https://" + domain + "/.well-known/webfinger?" + url.Values{
 		"resource": []string{resource},
 		"rel":      rel,
 	}.Encode()
 }
 
-func WebfingerFetch(u string) (*WebfingerResponse, error) {
+func Fetch(u string) (*Response, error) {
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "WebfingerFetch")
+		return nil, errors.Wrap(err, "Fetch")
 	}
 	req.Header.Set("accept", "application/jrd+json, application/xrd+xml")
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "WebfingerFetch")
+		return nil, errors.Wrap(err, "Fetch")
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
 		if res.StatusCode == 404 {
-			return nil, ErrWebfingerNotFound
+			return nil, ErrNotFound
 		}
 
-		return nil, errors.Errorf("WebfingerFetch: invalid status code; expected 200 but got %d", res.StatusCode)
+		return nil, errors.Errorf("Fetch: invalid status code; expected 200 but got %d", res.StatusCode)
 	}
 
 	media := "application/jrd+json"
@@ -45,30 +45,30 @@ func WebfingerFetch(u string) (*WebfingerResponse, error) {
 		media = mt
 	}
 
-	var v WebfingerResponse
+	var v Response
 
 	switch media {
 	case "application/xrd+xml":
 		if err := xml.NewDecoder(res.Body).Decode(&v); err != nil {
-			return nil, errors.Wrap(err, "WebfingerFetch")
+			return nil, errors.Wrap(err, "Fetch")
 		}
 	default:
 		if err := json.NewDecoder(res.Body).Decode(&v); err != nil {
-			return nil, errors.Wrap(err, "WebfingerFetch")
+			return nil, errors.Wrap(err, "Fetch")
 		}
 	}
 
 	return &v, nil
 }
 
-type WebfingerResponse struct {
+type Response struct {
 	Subject    string             `json:"subject"`
 	Aliases    []string           `json:"aliases,omitempty"`
 	Properties map[string]*string `json:"properties,omitempty"`
-	Links      []WebfingerLink    `json:"links,omitempty"`
+	Links      []Link             `json:"links,omitempty"`
 }
 
-func (r *WebfingerResponse) GetLink(rel string) *WebfingerLink {
+func (r *Response) GetLink(rel string) *Link {
 	for _, l := range r.Links {
 		if l.Rel == rel {
 			return &l
@@ -83,10 +83,10 @@ type webfingerResponseXML struct {
 	Subject    string                 `xml:"Subject"`
 	Aliases    []string               `xml:"Alias"`
 	Properties []webfingerXMLProperty `xml:"Property"`
-	Links      []WebfingerLink        `xml:"Link"`
+	Links      []Link                 `xml:"Link"`
 }
 
-func (r *WebfingerResponse) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+func (r *Response) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	v := webfingerResponseXML{
 		Subject: r.Subject,
 		Aliases: r.Aliases,
@@ -104,7 +104,7 @@ func (r *WebfingerResponse) MarshalXML(e *xml.Encoder, start xml.StartElement) e
 	return e.Encode(v)
 }
 
-type WebfingerLink struct {
+type Link struct {
 	Rel        string             `json:"rel,omitempty"`
 	Type       string             `json:"type,omitempty"`
 	Href       string             `json:"href,omitempty"`
@@ -133,10 +133,10 @@ type webfingerXMLProperty struct {
 	Value string `xml:",chardata"`
 }
 
-func (m *WebfingerLink) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+func (m *Link) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	var v webfingerLinkXML
 	if err := d.DecodeElement(&v, &start); err != nil {
-		return errors.Wrap(err, "WebfingerLink.UnmarshalXML")
+		return errors.Wrap(err, "Link.UnmarshalXML")
 	}
 
 	m.Rel = v.Rel
@@ -161,7 +161,7 @@ func (m *WebfingerLink) UnmarshalXML(d *xml.Decoder, start xml.StartElement) err
 	return nil
 }
 
-func (m *WebfingerLink) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+func (m *Link) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	v := webfingerLinkXML{
 		Rel:      m.Rel,
 		Type:     m.Type,
@@ -183,13 +183,13 @@ func (m *WebfingerLink) MarshalXML(e *xml.Encoder, start xml.StartElement) error
 	return e.Encode(v)
 }
 
-type WebfingerSource interface {
-	Fetch(subject string, rel []string) (*WebfingerResponse, error)
+type Source interface {
+	Fetch(subject string, rel []string) (*Response, error)
 }
 
-type WebfingerHandler struct{ WebfingerSource }
+type Handler struct{ Source }
 
-func (s *WebfingerHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+func (s *Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 
 	subject := q.Get("resource")
@@ -210,7 +210,7 @@ func (s *WebfingerHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 			m[e] = true
 		}
 
-		var a []WebfingerLink
+		var a []Link
 
 		for _, l := range res.Links {
 			if m[l.Rel] {

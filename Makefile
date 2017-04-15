@@ -3,7 +3,7 @@ don: don_bare $(shell find migrations public templates -type f) build/entry-serv
 	@cp -a don_bare don
 	@rice append --exec don
 
-don_bare: *.go
+don_bare: *.go $(shell find acct activitystreams atom commonxml hostmeta pubsub react webfinger workergroup -type f)
 	@echo "--> Building don with host toolchain"
 	@go build -v -ldflags=-s -o don_bare
 
@@ -17,7 +17,7 @@ build/entry-client-bundle.js: $(shell find client/src -type f) client/webpack.* 
 	@docker run --rm -it -v `pwd`:/app deoxxa/node-yarn:7.4 bash -c 'cd /app/client && yarn run build-client'
 	@touch build/entry-client-bundle.js
 
-cross.stamp: *.go $(shell find migrations public templates -type f) build/entry-server-bundle.js build/entry-client-bundle.js
+cross.stamp: *.go $(shell find acct activitystreams atom commonxml hostmeta pubsub react webfinger workergroup -type f) $(shell find migrations public templates -type f) build/entry-server-bundle.js build/entry-client-bundle.js
 	@echo "--> Building cross-platform binaries"
 	@xgo -targets 'darwin/amd64,linux/amd64,linux/arm,linux/arm64,windows/amd64' .
 	@rice append --exec don-darwin-10.6-amd64

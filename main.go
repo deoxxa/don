@@ -23,6 +23,13 @@ import (
 	"github.com/umisama/go-sqlbuilder/dialects"
 	"github.com/urfave/negroni"
 	"gopkg.in/alecthomas/kingpin.v2"
+
+	"fknsrs.biz/p/don/acct"
+	"fknsrs.biz/p/don/activitystreams"
+	"fknsrs.biz/p/don/hostmeta"
+	"fknsrs.biz/p/don/pubsub"
+	"fknsrs.biz/p/don/react"
+	"fknsrs.biz/p/don/webfinger"
 )
 
 var (
@@ -110,12 +117,12 @@ func main() {
 	ss := sessions.NewCookieStore(*cookieSigningKey, *cookieEncryptionKey)
 	ss.Options = &sessions.Options{HttpOnly: true, Secure: strings.HasPrefix(*publicURL, "https:")}
 
-	var renderer ReactRenderer
+	var renderer react.Renderer
 	switch *reactRenderer {
 	case "duktape":
-		renderer = NewReactRendererDuktape(1)
+		renderer = react.NewDuktapeRenderer(1)
 	case "node":
-		renderer = NewReactRendererNode(1)
+		renderer = react.NewNodeJSRenderer(1)
 	}
 
 	rootTemplate := template.New("root")
@@ -146,7 +153,7 @@ func main() {
 		panic(err)
 	}
 
-	psc := NewPubSubClient(*publicURL+"/pubsub", NewPubSubSQLState(db), a.OnMessage)
+	psc := pubsub.NewClient(*publicURL+"/pubsub", pubsub.NewSQLiteState(db), a.OnMessage)
 
 	go func() {
 		time.Sleep(time.Second * 2)
@@ -180,7 +187,7 @@ func main() {
 	m.Methods("POST").Path("/logout").HandlerFunc(a.HandlerFor(a.handleLogoutPost))
 
 	m.Methods("GET").Path("/show-feed").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		feed, err := AtomFetch(r.URL.Query().Get("url"))
+		feed, err := activitystreams.Fetch(r.URL.Query().Get("url"))
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
@@ -234,13 +241,13 @@ func main() {
 			return
 		}
 
-		acct, err := AcctFromString(user)
+		acct, err := acct.FromString(user)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		hm, err := HostMetaFetch(acct.Host)
+		hm, err := hostmeta.Fetch(acct.Host)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
@@ -272,7 +279,7 @@ func main() {
 			lrddHref = s
 		}
 
-		wf, err := WebfingerFetch(lrddHref)
+		wf, err := webfinger.Fetch(lrddHref)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
