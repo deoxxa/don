@@ -2,6 +2,7 @@ package activitystreams
 
 import (
 	"github.com/pkg/errors"
+	"net/url"
 
 	"fknsrs.biz/p/don/atom"
 	"fknsrs.biz/p/don/commonxml"
@@ -31,6 +32,20 @@ type Author struct {
 	DisplayName       string `xml:"http://portablecontacts.net/spec/1.0 displayName" json:"displayName,omitempty"`
 	Note              string `xml:"http://portablecontacts.net/spec/1.0 note" json:"note,omitempty"`
 	Scope             string `xml:"http://mastodon.social/schema/1.0 scope" json:"scope,omitempty"`
+}
+
+func (a *Author) Acct() string {
+	if a.Email != "" {
+		return a.Email
+	}
+
+	if a.URI != "" && a.PreferredUsername != "" {
+		if u, err := url.Parse(a.URI); err == nil {
+			return a.PreferredUsername + "@" + u.Host
+		}
+	}
+
+	return ""
 }
 
 type Object struct {
