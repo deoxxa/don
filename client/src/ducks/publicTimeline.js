@@ -16,19 +16,6 @@ export type State = {
   error: ?Error,
 };
 
-export const publicTimelineFetch = () =>
-  dispatch => {
-    dispatch(publicTimelineLoading());
-
-    return axios
-      .get('/')
-      .then(
-        ({ data: { publicTimeline: { posts } } }) =>
-          dispatch(publicTimelineLoaded(posts)),
-        error => dispatch(publicTimelineError(error))
-      );
-  };
-
 export const publicTimelineError = (error: Error) => ({
   type: 'don/publicTimeline/ERROR',
   payload: { error },
@@ -41,6 +28,19 @@ export const publicTimelineLoading = () => ({
   type: 'don/publicTimeline/LOADING',
   payload: {},
 });
+
+export const publicTimelineFetch = () =>
+  (dispatch: (a: Object) => void) => {
+    dispatch(publicTimelineLoading());
+
+    return axios
+      .get('/')
+      .then(
+        ({ data: { publicTimeline: { posts } } }) =>
+          dispatch(publicTimelineLoaded(posts)),
+        error => dispatch(publicTimelineError(error))
+      );
+  };
 
 const defaultState = {
   loading: false,

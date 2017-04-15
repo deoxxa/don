@@ -7,7 +7,7 @@ import { StaticRouter } from 'react-router';
 import type { State } from 'ducks';
 
 import Root from './root';
-import { setupAxios, setupStore } from './setup';
+import { setupStore } from './setup';
 
 module.exports = function main(location: string, initialStateJSON: string) {
   let initialState: ?State = null;

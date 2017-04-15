@@ -8,9 +8,9 @@ import URLSearchParams from 'url-search-params';
 
 import { serialiseForm } from 'lib/serialiseForm';
 
-import FontAwesome from 'components/FontAwesome';
-
 import type { User } from 'ducks/authentication';
+
+import FontAwesome from 'components/FontAwesome';
 
 import defaultAvatarURL from './default-avatar.png';
 import styles from './styles.css';

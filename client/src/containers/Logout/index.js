@@ -1,16 +1,10 @@
 // @flow
 
-import React, { Component } from 'react';
+import React from 'react';
 import { connect } from 'react-redux';
-import { withRouter } from 'react-router';
-import { Link, NavLink } from 'react-router-dom';
-import URLSearchParams from 'url-search-params';
 
 import { authenticationLogout } from 'ducks/authentication';
 import type { State as AuthenticationState } from 'ducks/authentication';
-
-import FontAwesome from 'components/FontAwesome';
-import PublicTimelinePost from 'components/PublicTimelinePost';
 
 import styles from './styles.css';
 

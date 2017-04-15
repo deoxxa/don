@@ -2,13 +2,12 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { Link, withRouter } from 'react-router';
+import { withRouter } from 'react-router';
 import { NavLink } from 'react-router-dom';
 
 import { publicTimelineFetch } from 'ducks/publicTimeline';
 import type { State as PublicTimelineState } from 'ducks/publicTimeline';
 
-import FontAwesome from 'components/FontAwesome';
 import PublicTimelinePost from 'components/PublicTimelinePost';
 
 import styles from './styles.css';
@@ -66,7 +65,7 @@ Home.Link = withRouter(
     publicTimeline: PublicTimelineState,
     history: { push: (path: string) => void },
     publicTimelineFetch: () => Promise<void>,
-    children?: React.children,
+    children?: React.Children,
   }) => (
     <NavLink
       {...rest}

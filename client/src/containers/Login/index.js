@@ -2,15 +2,11 @@
 
 import React from 'react';
 import { connect } from 'react-redux';
-import { withRouter } from 'react-router';
-import { Link, NavLink } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import URLSearchParams from 'url-search-params';
 
 import { authenticationLogin } from 'ducks/authentication';
 import type { State as AuthenticationState } from 'ducks/authentication';
-
-import FontAwesome from 'components/FontAwesome';
-import PublicTimelinePost from 'components/PublicTimelinePost';
 
 import styles from './styles.css';
 
@@ -46,7 +42,7 @@ const Login = (
 
               authenticationLogin(ev.target[1].value, ev.target[2].value).then(
                 () => history.push(returnTo),
-                err => null
+                () => {}
               );
             }}
           >

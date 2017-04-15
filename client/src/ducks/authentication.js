@@ -16,6 +16,44 @@ export type State = {
   user: ?User,
 };
 
+export const authenticationError = (error: Error | string) => {
+  let errorString = 'Unknown error';
+
+  if (typeof error === 'string') {
+    errorString = error;
+  }
+
+  if (error instanceof Error) {
+    if (
+      typeof error.response === 'object' &&
+      error.response !== null &&
+      typeof error.response.data === 'string'
+    ) {
+      errorString = error.response.data;
+    } else {
+      errorString = error.toString();
+    }
+  }
+
+  return {
+    type: 'don/authentication/ERROR',
+    payload: { error: errorString },
+  };
+};
+
+export const authenticationLoading = () => ({
+  type: 'don/authentication/LOADING',
+  payload: {},
+});
+export const authenticationSuccess = (user: User) => ({
+  type: 'don/authentication/SUCCESS',
+  payload: { user },
+});
+export const authenticationReset = () => ({
+  type: 'don/authentication/RESET',
+  payload: {},
+});
+
 export const authenticationRegister = (
   email: string,
   username: string,
@@ -90,44 +128,6 @@ export const authenticationLogout = () =>
       );
     });
   };
-
-export const authenticationError = (error: Error | string) => {
-  let errorString = 'Unknown error';
-
-  if (typeof error === 'string') {
-    errorString = error;
-  }
-
-  if (error instanceof Error) {
-    if (
-      typeof error.response === 'object' &&
-      error.response !== null &&
-      typeof error.response.data === 'string'
-    ) {
-      errorString = error.response.data;
-    } else {
-      errorString = error + '';
-    }
-  }
-
-  return {
-    type: 'don/authentication/ERROR',
-    payload: { error: errorString },
-  };
-};
-
-export const authenticationLoading = () => ({
-  type: 'don/authentication/LOADING',
-  payload: {},
-});
-export const authenticationSuccess = (user: User) => ({
-  type: 'don/authentication/SUCCESS',
-  payload: { user },
-});
-export const authenticationReset = () => ({
-  type: 'don/authentication/RESET',
-  payload: {},
-});
 
 const defaultState = {
   loading: false,

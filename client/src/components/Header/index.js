@@ -3,9 +3,7 @@
 import classNames from 'classnames';
 import React from 'react';
 import { connect } from 'react-redux';
-import { NavLink } from 'react-router-dom';
 
-import FontAwesome from 'components/FontAwesome';
 import HeaderLeft from 'components/HeaderLeft';
 import HeaderRight from 'components/HeaderRight';
 import Inner from 'components/Inner';

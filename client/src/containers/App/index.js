@@ -1,13 +1,8 @@
 // @flow
 
 import React from 'react';
-import { Route } from 'react-router';
-import { NavLink } from 'react-router-dom';
-
-import Home from 'containers/Home';
 
 import Flash from 'components/Flash';
-import FontAwesome from 'components/FontAwesome';
 import Header from 'components/Header';
 import Inner from 'components/Inner';
 
