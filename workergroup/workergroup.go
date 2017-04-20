@@ -40,6 +40,10 @@ func (g *Group) Run(concurrency int) error {
 	return g.errors
 }
 
+func (g *Group) Pending() int {
+	return len(g.pending)
+}
+
 func (g *Group) pop() WorkerFunc {
 	g.m.Lock()
 	defer g.m.Unlock()
