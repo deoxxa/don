@@ -24,3 +24,7 @@ func Fetch(u string, v interface{}) error {
 
 	return nil
 }
+
+func Parse(d []byte, v interface{}) error {
+	return errors.Wrap(xml.Unmarshal(d, &v), "commonxml.Parse: couldn't decode xml")
+}
