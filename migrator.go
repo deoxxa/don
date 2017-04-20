@@ -18,7 +18,7 @@ func migrate(db *sql.DB, box *rice.Box) error {
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.Exec(`create table if not exists migrations (id numeric key, name text not null unique, applied_at datetime not null);`); err != nil {
+	if _, err := tx.Exec(`create table if not exists migrations (name text not null unique, applied_at datetime not null);`); err != nil {
 		return err
 	}
 
