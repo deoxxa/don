@@ -71,7 +71,7 @@ func (a *App) userRegister(email, username, password string) (*User, error) {
 	}
 
 	var id string
-	if err := a.DB.QueryRow("select id from users where username = $1 or email = $2", username, email).Scan(&id); err == nil {
+	if err := a.SQLDB.QueryRow("select id from users where username = $1 or email = $2", username, email).Scan(&id); err == nil {
 		return nil, errors.Wrap(errRegisterUsernameAlreadyExists, "App.userRegister")
 	} else if err != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "App.userRegister")
@@ -89,7 +89,7 @@ func (a *App) userRegister(email, username, password string) (*User, error) {
 		Email:     email,
 	}
 
-	if _, err := a.DB.Exec("insert into users (id, created_at, username, email, hash) values ($1, $2, $3, $4, $5)", u.ID, u.CreatedAt, u.Username, u.Email, hash); err != nil {
+	if _, err := a.SQLDB.Exec("insert into users (id, created_at, username, email, hash) values ($1, $2, $3, $4, $5)", u.ID, u.CreatedAt, u.Username, u.Email, hash); err != nil {
 		return nil, errors.Wrap(err, "App.userRegister")
 	}
 

@@ -10,16 +10,16 @@ func (a *App) handleHomeGet(r *http.Request, ar *AppResponse) *AppResponse {
 		return ar.WithError(err)
 	}
 
-	posts, err := getPublicTimeline(a.DB, args)
+	activities, err := a.getPublicTimeline(args)
 	if err != nil {
 		return ar.WithError(err)
 	}
 
 	return ar.ShallowMergeState(map[string]interface{}{
 		"publicTimeline": map[string]interface{}{
-			"loading": false,
-			"posts":   posts,
-			"error":   nil,
+			"loading":    false,
+			"activities": activities,
+			"error":      nil,
 		},
 	})
 }

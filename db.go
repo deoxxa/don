@@ -2,144 +2,266 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/umisama/go-sqlbuilder"
 
+	"fknsrs.biz/p/don/acct"
 	"fknsrs.biz/p/don/activitystreams"
 )
 
 var (
 	peopleTable = sqlbuilder.NewTable(
 		"people",
-		&sqlbuilder.TableOption{Unique: [][]string{{"hub", "topic"}}},
+		nil,
 		sqlbuilder.IntColumn("ROWID", nil),
-		sqlbuilder.StringColumn("feed_url", &sqlbuilder.ColumnOption{NotNull: true, PrimaryKey: true}),
+		sqlbuilder.StringColumn("id", &sqlbuilder.ColumnOption{NotNull: true, PrimaryKey: true}),
+		sqlbuilder.StringColumn("host", &sqlbuilder.ColumnOption{NotNull: true}),
 		sqlbuilder.DateColumn("first_seen", &sqlbuilder.ColumnOption{NotNull: true}),
-		sqlbuilder.StringColumn("name", nil),
+		sqlbuilder.StringColumn("permalink", &sqlbuilder.ColumnOption{NotNull: true}),
 		sqlbuilder.StringColumn("display_name", nil),
-		sqlbuilder.StringColumn("email", nil),
+		sqlbuilder.StringColumn("avatar", nil),
 		sqlbuilder.StringColumn("summary", nil),
-		sqlbuilder.StringColumn("note", nil),
 	)
 
-	postsTable = sqlbuilder.NewTable(
-		"posts",
-		&sqlbuilder.TableOption{Unique: [][]string{{"feed_url", "id"}}},
+	objectsTable = sqlbuilder.NewTable(
+		"objects",
+		nil,
 		sqlbuilder.IntColumn("ROWID", nil),
-		sqlbuilder.StringColumn("feed_url", &sqlbuilder.ColumnOption{NotNull: true}),
-		sqlbuilder.StringColumn("id", &sqlbuilder.ColumnOption{NotNull: true}),
-		sqlbuilder.StringColumn("created_at", &sqlbuilder.ColumnOption{NotNull: true}),
-		sqlbuilder.StringColumn("raw_entry", &sqlbuilder.ColumnOption{NotNull: true}),
+		sqlbuilder.StringColumn("id", &sqlbuilder.ColumnOption{NotNull: true, PrimaryKey: true}),
+		sqlbuilder.StringColumn("name", nil),
+		sqlbuilder.StringColumn("summary", nil),
+		sqlbuilder.StringColumn("representative_image", nil),
+		sqlbuilder.StringColumn("permalink", nil),
+		sqlbuilder.StringColumn("object_type", nil),
+		sqlbuilder.StringColumn("content", nil),
+	)
+
+	activitiesTable = sqlbuilder.NewTable(
+		"activities",
+		nil,
+		sqlbuilder.IntColumn("ROWID", nil),
+		sqlbuilder.StringColumn("id", &sqlbuilder.ColumnOption{NotNull: true, PrimaryKey: true}),
+		sqlbuilder.StringColumn("permalink", &sqlbuilder.ColumnOption{NotNull: true}),
+		sqlbuilder.StringColumn("actor", nil),
+		sqlbuilder.StringColumn("object", &sqlbuilder.ColumnOption{NotNull: true}),
+		sqlbuilder.StringColumn("verb", &sqlbuilder.ColumnOption{NotNull: true}),
+		sqlbuilder.DateColumn("time", &sqlbuilder.ColumnOption{NotNull: true}),
+		sqlbuilder.StringColumn("title", nil),
+		sqlbuilder.StringColumn("in_reply_to_id", nil),
+		sqlbuilder.StringColumn("in_reply_to_url", nil),
 	)
 )
 
-func savePerson(db *sql.DB, feedURL string, author *activitystreams.Author) error {
-	tx, err := db.Begin()
+func (a *App) savePerson(p *activitystreams.Author) (*acct.URL, error) {
+	var permalink string
+	for _, l := range p.GetLinks("alternate") {
+		if l.Type == "text/html" && permalink == "" {
+			permalink = l.Href
+		}
+	}
+	if permalink == "" {
+		permalink = p.URI
+	}
+
+	if permalink == "" {
+		return nil, errors.Errorf("App.savePerson: couldn't find permalink for user")
+	}
+
+	accountURLString, _, err := a.AccountURLCache.Get(permalink, p)
+
+	if err != nil || len(accountURLString) == 0 {
+		return nil, nil
+	}
+
+	accountURL, err := acct.FromString(string(accountURLString))
 	if err != nil {
-		return errors.Wrap(err, "savePerson")
+		return nil, errors.Wrap(err, "App.savePerson: couldn't parse account url")
+	}
+
+	tx, err := a.SQLDB.Begin()
+	if err != nil {
+		return nil, errors.Wrap(err, "App.savePerson: couldn't begin transaction")
 	}
 	defer tx.Rollback()
 
-	if err := savePersonTx(tx, feedURL, author); err != nil {
-		return errors.Wrap(err, "savePerson")
+	var exists bool
+	var displayName, avatar, summary string
+	var firstSeen time.Time
+	if err := tx.QueryRow("select 1, first_seen, display_name, avatar, summary from people where id = $1", accountURL.String()).Scan(&exists, &firstSeen, &displayName, &avatar, &summary); err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "App.savePerson: couldn't query for existing person")
 	}
 
-	return errors.Wrap(tx.Commit(), "savePerson")
-}
+	var changed bool
 
-func savePersonTx(tx *sql.Tx, feedURL string, author *activitystreams.Author) error {
-	var name, displayName, email, summary, note string
-	if err := tx.QueryRow("select name, display_name, email, summary, note from people where feed_url = $1", feedURL).Scan(&name, &displayName, &email, &summary, &note); err != nil {
-		if err != sql.ErrNoRows {
-			return errors.Wrap(err, "savePersonTx")
-		}
+	if newDisplayName := strings.TrimSpace(p.DisplayName); newDisplayName != "" && newDisplayName != displayName {
+		displayName = newDisplayName
+		changed = true
+	}
+	if newSummary := strings.TrimSpace(p.Summary); newSummary != "" && newSummary != summary {
+		summary = newSummary
+		changed = true
+	}
+	if newAvatar := strings.TrimSpace(p.GetBestAvatar()); newAvatar != "" && newAvatar != avatar {
+		avatar = newAvatar
+		changed = true
+	}
 
-		if _, err := tx.Exec("insert into people (feed_url, first_seen, name, display_name, email, summary, note) values ($1, $2, $3, $4, $5, $6, $7)", feedURL, time.Now(), author.Name, author.DisplayName, author.Email, author.Summary, author.Note); err != nil {
-			return errors.Wrap(err, "savePersonTx")
+	if !exists {
+		firstSeen = time.Now()
+		if _, err := tx.Exec("insert into people (id, host, first_seen, permalink, display_name, avatar, summary) values ($1, $2, $3, $4, $5, $6, $7)", accountURL.String(), accountURL.Host, firstSeen, permalink, displayName, avatar, summary); err != nil {
+			return nil, errors.Wrap(err, "App.savePerson: couldn't save person to db")
 		}
-	} else {
-		if name == author.Name && displayName == author.DisplayName && email == author.Email && summary == author.Summary && note == author.Note {
-			return nil
-		}
-
-		if _, err := tx.Exec("update people set name = $1, display_name = $2, email = $3, summary = $4, note = $5 where feed_url = $6", author.Name, author.DisplayName, author.Email, author.Summary, author.Note, feedURL); err != nil {
-			return errors.Wrap(err, "savePersonTx")
+	} else if changed {
+		if _, err := tx.Exec("update people set display_name = $1, avatar = $2, summary = $3 where id = $4", displayName, avatar, summary, accountURL.String()); err != nil {
+			return nil, errors.Wrap(err, "App.savePerson: couldn't update person in db")
 		}
 	}
 
-	return nil
+	return accountURL, errors.Wrap(tx.Commit(), "App.savePerson: couldn't commit transaction")
 }
 
-func saveEntry(db *sql.DB, feedURL string, entry *activitystreams.Object) error {
-	tx, err := db.Begin()
+func (a *App) saveActivity(e activitystreams.ActivityLike) error {
+	o := e.GetObject()
+
+	if o != e {
+		if e2, ok := o.(activitystreams.ActivityLike); ok {
+			if err := a.saveActivity(e2); err != nil {
+				return errors.Wrap(err, "saveActivity: couldn't save nested activity")
+			}
+		}
+
+		if p, ok := o.(*activitystreams.Author); ok {
+			if _, err := a.savePerson(p); err != nil {
+				return errors.Wrap(err, "saveActivity: couldn't save nested person")
+			}
+		}
+	}
+
+	var actorID sql.NullString
+	if actor := e.GetActor(); actor != nil {
+		if u, err := a.savePerson(actor); err != nil {
+			return errors.Wrap(err, "saveActivity: couldn't save author")
+		} else if u != nil {
+			actorID.Valid = true
+			actorID.String = u.String()
+		}
+	}
+
+	if err := a.saveObject(o); err != nil {
+		return errors.Wrap(err, "saveActivity: couldn't save object")
+	}
+
+	if err := a.saveObject(e); err != nil {
+		return errors.Wrap(err, "saveActivity: couldn't save activity as object")
+	}
+
+	tx, err := a.SQLDB.Begin()
 	if err != nil {
-		return errors.Wrap(err, "saveEntry")
+		return errors.Wrap(err, "saveActivity: couldn't begin transaction")
 	}
 	defer tx.Rollback()
 
-	if err := saveEntryTx(tx, feedURL, entry); err != nil {
-		return errors.Wrap(err, "saveEntry")
-	}
-
-	return errors.Wrap(tx.Commit(), "saveEntry")
-}
-
-func saveEntryTx(tx *sql.Tx, feedURL string, entry *activitystreams.Object) error {
 	var exists int
-	if err := tx.QueryRow("select count(1) from posts where feed_url = $1 and id = $2", feedURL, entry.ID).Scan(&exists); err != nil {
-		return errors.Wrap(err, "saveEntryTx")
+	if err := tx.QueryRow("select count(*) from activities where id = $1", e.GetID()).Scan(&exists); err != nil {
+		return errors.Wrap(err, "saveActivity: couldn't query for existing activities")
 	}
 
-	if exists > 0 {
-		return nil
+	if exists == 0 {
+		var inReplyToID, inReplyToURL sql.NullString
+		if e, ok := e.(activitystreams.HasInReplyTo); ok {
+			if s := e.GetInReplyTo(); s != nil {
+				inReplyToID.Valid = true
+				inReplyToID.String = s.Ref
+
+				inReplyToURL.Valid = true
+				inReplyToURL.String = s.Href
+			}
+		}
+
+		if _, err := tx.Exec("insert into activities (id, permalink, actor, object, verb, time, title, in_reply_to_id, in_reply_to_url) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)", e.GetID(), e.GetPermalink(), actorID, e.GetObject().GetID(), e.GetVerb(), e.GetTime(), e.GetTitle(), inReplyToID, inReplyToURL); err != nil {
+			return errors.Wrap(err, "saveActivity: couldn't save activity to db")
+		}
 	}
 
-	d, err := json.Marshal(entry)
+	return errors.Wrap(tx.Commit(), "saveActivity: couldn't commit transaction")
+}
+
+func (a *App) saveObject(o activitystreams.ObjectLike) error {
+	tx, err := a.SQLDB.Begin()
 	if err != nil {
-		return errors.Wrap(err, "saveEntryTx")
+		return errors.Wrap(err, "saveObject: couldn't begin transaction")
+	}
+	defer tx.Rollback()
+
+	var exists int
+	if err := tx.QueryRow("select count(*) from objects where id = $1", o.GetID()).Scan(&exists); err != nil {
+		return errors.Wrap(err, "saveObject: couldn't query for existing objects")
 	}
 
-	if _, err := tx.Exec("insert into posts (feed_url, id, created_at, raw_entry, xml_entry) values ($1, $2, $3, $4, $5)", feedURL, entry.ID, entry.Published, string(d), entry.InnerXML); err != nil {
-		return errors.Wrap(err, "saveEntryTx")
+	if exists == 0 {
+		var content sql.NullString
+		if hc, ok := o.(activitystreams.HasContent); ok {
+			if c := hc.GetContent(); c != "" {
+				content.Valid = true
+				content.String = c
+			}
+		}
+
+		if _, err := tx.Exec("insert into objects (id, name, summary, representative_image, permalink, object_type, content) values ($1, $2, $3, $4, $5, $6, $7)", o.GetID(), o.GetName(), o.GetSummary(), o.GetRepresentativeImage(), o.GetPermalink(), o.GetObjectType(), content); err != nil {
+			return errors.Wrap(err, "saveObject: couldn't save object to db")
+		}
 	}
 
-	return nil
+	return errors.Wrap(tx.Commit(), "saveObject: couldn't commit transaction")
 }
 
 type getPublicTimelineArgs struct {
-	AfterID int `schema:"after_id"`
-	Offset  int `schema:"offset,omitempty"`
-	Limit   int `schema:"limit,omitempty"`
+	After  time.Time `schema:"after"`
+	Before time.Time `schema:"before"`
 }
 
-func getPublicTimeline(db *sql.DB, args getPublicTimelineArgs) ([]UIStatus, error) {
+func (a *App) getPublicTimeline(args getPublicTimelineArgs) ([]Activity, error) {
 	qb := sqlbuilder.
-		Select(postsTable.LeftOuterJoin(peopleTable, peopleTable.C("feed_url").Eq(postsTable.C("feed_url")))).
-		Columns(
-			postsTable.C("ROWID"),
-			postsTable.C("feed_url"),
-			postsTable.C("raw_entry"),
-			peopleTable.C("name"),
-			peopleTable.C("display_name"),
-			peopleTable.C("email"),
+		Select(activitiesTable.
+			LeftOuterJoin(peopleTable, peopleTable.C("id").Eq(activitiesTable.C("actor"))).
+			LeftOuterJoin(objectsTable, objectsTable.C("id").Eq(activitiesTable.C("object"))),
 		).
-		OrderBy(true, postsTable.C("created_at"))
+		Columns(
+			activitiesTable.C("id"),
+			activitiesTable.C("permalink"),
+			activitiesTable.C("actor"),
+			activitiesTable.C("object"),
+			activitiesTable.C("verb"),
+			activitiesTable.C("time"),
+			activitiesTable.C("title"),
+			activitiesTable.C("in_reply_to_id"),
+			activitiesTable.C("in_reply_to_url"),
+			objectsTable.C("id"),
+			objectsTable.C("name"),
+			objectsTable.C("summary"),
+			objectsTable.C("representative_image"),
+			objectsTable.C("permalink"),
+			objectsTable.C("object_type"),
+			objectsTable.C("content"),
+			peopleTable.C("id"),
+			peopleTable.C("host"),
+			peopleTable.C("first_seen"),
+			peopleTable.C("permalink"),
+			peopleTable.C("display_name"),
+			peopleTable.C("avatar"),
+			peopleTable.C("summary"),
+		).
+		OrderBy(true, activitiesTable.C("time")).
+		Limit(50)
 
-	if args.Offset > 0 && args.Offset < 225 {
-		qb = qb.Offset(args.Offset)
+	if !args.After.IsZero() {
+		qb = qb.Where(activitiesTable.C("time").Gt(args.After))
 	}
-
-	if args.Limit > 0 && args.Limit <= 25 {
-		qb = qb.Limit(args.Limit)
-	} else {
-		qb = qb.Limit(25)
-	}
-
-	if args.AfterID != 0 {
-		qb = qb.Where(postsTable.C("ROWID").Gt(args.AfterID))
+	if !args.Before.IsZero() {
+		qb = qb.Where(activitiesTable.C("time").Lt(args.Before))
 	}
 
 	q, vars, err := qb.ToSql()
@@ -147,158 +269,68 @@ func getPublicTimeline(db *sql.DB, args getPublicTimelineArgs) ([]UIStatus, erro
 		return nil, errors.Wrap(err, "getPublicTimeline")
 	}
 
-	rows, err := db.Query(q, vars...)
+	rows, err := a.SQLDB.Query(q, vars...)
 	if err != nil {
 		return nil, errors.Wrap(err, "getPublicTimeline")
 	}
 	defer rows.Close()
 
-	var posts []UIStatus
+	var activities []Activity
 	for rows.Next() {
-		var id int
-		var feedURL, rawEntry string
-		var name, displayName, email sql.NullString
-		if err := rows.Scan(&id, &feedURL, &rawEntry, &name, &displayName, &email); err != nil {
-			return nil, errors.Wrap(err, "getPublicTimeline")
-		}
+		var activity Activity
 
-		var entry activitystreams.Object
-		if err := json.Unmarshal([]byte(rawEntry), &entry); err != nil {
-			return nil, errors.Wrap(err, "getPublicTimeline")
-		}
-
-		post := UIStatus{ID: id}
-
-		if name.Valid {
-			post.AuthorAcct = email.String
-			post.AuthorName = name.String
-		}
-
-		if t, err := time.Parse(time.RFC3339, entry.Published); err == nil {
-			post.Time = t
-		}
-
-		if entry.Content != nil {
-			post.ContentHTML = entry.Content.HTML()
-			post.ContentText = entry.Content.Text()
-		}
-
-		posts = append(posts, post)
-	}
-
-	return posts, nil
-}
-
-type getPostsArgs struct {
-	AfterID    int       `qstring:"after_id,omitempty"`
-	BeforeID   int       `qstring:"before_id,omitempty"`
-	AfterTime  time.Time `qstring:"after_time,omitempty"`
-	BeforeTime time.Time `qstring:"before_time,omitempty"`
-	People     []int     `qstring:"people,omitempty"`
-	Sort       string    `qstring:"sort,omitempty"`
-	Limit      int       `qstring:"limit,omitempty"`
-}
-
-func getPosts(db *sql.DB, args getPostsArgs) ([]UIStatus, error) {
-	qb := sqlbuilder.
-		Select(postsTable.LeftOuterJoin(peopleTable, peopleTable.C("feed_url").Eq(postsTable.C("feed_url")))).
-		Columns(
-			postsTable.C("ROWID"),
-			postsTable.C("feed_url"),
-			postsTable.C("raw_entry"),
-			peopleTable.C("name"),
-			peopleTable.C("display_name"),
-			peopleTable.C("email"),
+		var (
+			personID          *string
+			personHost        *string
+			personFirstSeen   *time.Time
+			personPermalink   *string
+			personDisplayName *string
+			personAvatar      *string
+			personSummary     *string
 		)
 
-	if args.Limit > 0 && args.Limit <= 75 {
-		qb = qb.Limit(args.Limit)
-	} else {
-		qb = qb.Limit(75)
-	}
-
-	switch args.Sort {
-	case "-created_at":
-		qb = qb.OrderBy(false, postsTable.C("created_at"))
-	case "created_at":
-		qb = qb.OrderBy(true, postsTable.C("created_at"))
-	case "-id":
-		qb = qb.OrderBy(false, postsTable.C("ROWID"))
-	default:
-		qb = qb.OrderBy(true, postsTable.C("ROWID"))
-	}
-
-	var conditions []sqlbuilder.Condition
-
-	if args.AfterID != 0 {
-		conditions = append(conditions, postsTable.C("ROWID").Gt(args.AfterID))
-	}
-	if args.BeforeID != 0 {
-		conditions = append(conditions, postsTable.C("ROWID").Lt(args.BeforeID))
-	}
-	if !args.AfterTime.IsZero() {
-		conditions = append(conditions, postsTable.C("created_at").Gt(args.AfterTime))
-	}
-	if !args.BeforeTime.IsZero() {
-		conditions = append(conditions, postsTable.C("created_at").Gt(args.BeforeTime))
-	}
-
-	if len(args.People) > 0 {
-		var a []interface{}
-		for _, id := range args.People {
-			a = append(a, id)
+		if err := rows.Scan(
+			&activity.ID,
+			&activity.Permalink,
+			&activity.ActorID,
+			&activity.ObjectID,
+			&activity.Verb,
+			&activity.Time,
+			&activity.Title,
+			&activity.InReplyToID,
+			&activity.InReplyToURL,
+			&activity.Object.ID,
+			&activity.Object.Name,
+			&activity.Object.Summary,
+			&activity.Object.RepresentativeImage,
+			&activity.Object.Permalink,
+			&activity.Object.ObjectType,
+			&activity.Object.Content,
+			&personID,
+			&personHost,
+			&personFirstSeen,
+			&personPermalink,
+			&personDisplayName,
+			&personAvatar,
+			&personSummary,
+		); err != nil {
+			return nil, err
 		}
 
-		conditions = append(conditions, peopleTable.C("ROWID").In(a...))
-	}
-
-	if len(conditions) > 0 {
-		qb = qb.Where(sqlbuilder.And(conditions...))
-	}
-
-	q, vars, err := qb.ToSql()
-	if err != nil {
-		return nil, errors.Wrap(err, "getPosts")
-	}
-
-	rows, err := db.Query(q, vars...)
-	if err != nil {
-		return nil, errors.Wrap(err, "getPosts")
-	}
-	defer rows.Close()
-
-	var posts []UIStatus
-	for rows.Next() {
-		var id int
-		var feedURL, rawEntry string
-		var name, displayName, email sql.NullString
-		if err := rows.Scan(&id, &feedURL, &rawEntry, &name, &displayName, &email); err != nil {
-			return nil, errors.Wrap(err, "getPosts")
+		if personID != nil && personHost != nil && personFirstSeen != nil && personPermalink != nil {
+			activity.Actor = &Person{
+				ID:          *personID,
+				Host:        *personHost,
+				FirstSeen:   *personFirstSeen,
+				Permalink:   *personPermalink,
+				DisplayName: personDisplayName,
+				Avatar:      personAvatar,
+				Summary:     personSummary,
+			}
 		}
 
-		var entry activitystreams.Object
-		if err := json.Unmarshal([]byte(rawEntry), &entry); err != nil {
-			return nil, errors.Wrap(err, "getPosts")
-		}
-
-		post := UIStatus{ID: id}
-
-		if name.Valid {
-			post.AuthorAcct = email.String
-			post.AuthorName = name.String
-		}
-
-		if t, err := time.Parse(time.RFC3339, entry.Published); err == nil {
-			post.Time = t
-		}
-
-		if entry.Content != nil {
-			post.ContentHTML = entry.Content.HTML()
-			post.ContentText = entry.Content.Text()
-		}
-
-		posts = append(posts, post)
+		activities = append(activities, activity)
 	}
 
-	return posts, nil
+	return activities, nil
 }

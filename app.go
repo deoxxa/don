@@ -11,8 +11,10 @@ import (
 	"net/http"
 	"time"
 
+	"fknsrs.biz/p/bcache"
 	"github.com/GeertJohan/go.rice"
 	"github.com/Sirupsen/logrus"
+	"github.com/boltdb/bolt"
 	"github.com/gorilla/sessions"
 	"github.com/pkg/errors"
 	"github.com/timewasted/go-accept-headers"
@@ -23,19 +25,79 @@ import (
 )
 
 type App struct {
-	DB       *sql.DB
+	SQLDB    *sql.DB
+	BoltDB   *bolt.DB
 	Store    sessions.Store
 	Renderer react.Renderer
 	Template *template.Template
 	BuildBox *rice.Box
+
+	AccountURLCache *bcache.Cache
+	FeedCache       *bcache.Cache
 }
 
-func NewApp(db *sql.DB, store sessions.Store, renderer react.Renderer, template *template.Template, buildBox *rice.Box) (*App, error) {
-	return &App{DB: db, Store: store, Renderer: renderer, Template: template, BuildBox: buildBox}, nil
+func NewApp(sqlDB *sql.DB, boltDB *bolt.DB, store sessions.Store, renderer react.Renderer, template *template.Template, buildBox *rice.Box) (*App, error) {
+	a := &App{
+		SQLDB:    sqlDB,
+		BoltDB:   boltDB,
+		Store:    store,
+		Renderer: renderer,
+		Template: template,
+		BuildBox: buildBox,
+	}
+
+	a.AccountURLCache = bcache.New(
+		"account_url",
+		bcache.SetDB(boltDB),
+		bcache.SetWorker(fetchAccountURL),
+		bcache.SetMaxAge(time.Hour*24*7),
+		bcache.SetHighMark(32*1024),
+		bcache.SetLowMark(30*1024),
+		bcache.SetStrategy(bcache.StrategyLFU()),
+		bcache.SetKeepErrors(true),
+	)
+
+	if err := a.AccountURLCache.ForceInit(); err != nil {
+		return nil, err
+	}
+
+	a.FeedCache = bcache.New(
+		"feed",
+		bcache.SetDB(boltDB),
+		bcache.SetWorker(func(key string, _ interface{}) ([]byte, error) {
+			res, err := http.Get(key)
+			if err != nil {
+				return nil, errors.Wrap(err, "feedFetch: couldn't make request")
+			}
+			defer res.Body.Close()
+
+			if res.StatusCode != 200 {
+				return nil, errors.Errorf("feedFetch: invalid status code; expected 200 but got %d", res.StatusCode)
+			}
+
+			d, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				return nil, errors.Wrap(err, "feedFetch: couldn't make request")
+			}
+
+			return d, nil
+		}),
+		bcache.SetMaxAge(time.Minute),
+		bcache.SetHighMark(1024),
+		bcache.SetLowMark(1000),
+		bcache.SetStrategy(bcache.StrategyLFU()),
+		bcache.SetKeepErrors(true),
+	)
+
+	if err := a.FeedCache.ForceInit(); err != nil {
+		return nil, err
+	}
+
+	return a, nil
 }
 
 func (a *App) OnMessage(id string, s *pubsub.Subscription, rd io.ReadCloser) {
-	var v activitystreams.Feed
+	var f activitystreams.Feed
 
 	if *recordDocuments {
 		d, err := ioutil.ReadAll(rd)
@@ -44,42 +106,36 @@ func (a *App) OnMessage(id string, s *pubsub.Subscription, rd io.ReadCloser) {
 			return
 		}
 
-		if err := xml.NewDecoder(bytes.NewReader(d)).Decode(&v); err != nil {
+		if err := xml.NewDecoder(bytes.NewReader(d)).Decode(&f); err != nil {
 			logrus.WithField("id", id).WithError(err).Debug("pubsub: couldn't parse body")
 			return
 		}
 
-		if _, err := a.DB.Exec("insert into documents (created_at, xml) values ($1, $2)", time.Now(), string(d)); err != nil {
+		if _, err := a.SQLDB.Exec("insert into documents (created_at, xml) values ($1, $2)", time.Now(), string(d)); err != nil {
 			logrus.WithField("id", id).WithError(err).Debug("pubsub: couldn't save document")
 			return
 		}
 	} else {
-		if err := xml.NewDecoder(rd).Decode(&v); err != nil {
+		if err := xml.NewDecoder(rd).Decode(&f); err != nil {
 			logrus.WithField("id", id).WithError(err).Debug("pubsub: couldn't parse body")
 			return
 		}
 	}
 
+	var l *logrus.Entry
+
 	if s == nil {
-		logrus.WithField("id", id).Debug("pubsub: unsolicited message")
-		return
+		l = logrus.WithField("id", id)
+	} else {
+		l = logrus.WithFields(logrus.Fields{
+			"id":    s.ID,
+			"hub":   s.Hub,
+			"topic": s.Topic,
+		})
 	}
 
-	l := logrus.WithFields(logrus.Fields{
-		"id":    s.ID,
-		"hub":   s.Hub,
-		"topic": s.Topic,
-	})
-
-	if v.Author != nil {
-		if err := savePerson(a.DB, s.Topic, v.Author); err != nil {
-			l.WithError(err).Debug("pubsub: couldn't save author")
-			return
-		}
-	}
-
-	for _, e := range v.Entry {
-		if err := saveEntry(a.DB, s.Topic, &e); err != nil {
+	for _, e := range f.Activities {
+		if err := a.saveActivity(&e); err != nil {
 			l.WithError(err).Debug("pubsub: couldn't save entry")
 		} else {
 			l.Debug("pubsub: saved entry")
@@ -104,7 +160,7 @@ func (a *App) getSessionAndUserFromRequest(r *http.Request) (*sessions.Session, 
 	}
 
 	var u User
-	if err := a.DB.QueryRow("select id, created_at, username, email, display_name, avatar from users where id = $1", userID).Scan(&u.ID, &u.CreatedAt, &u.Username, &u.Email, &u.DisplayName, &u.Avatar); err != nil {
+	if err := a.SQLDB.QueryRow("select id, created_at, username, email, display_name, avatar from users where id = $1", userID).Scan(&u.ID, &u.CreatedAt, &u.Username, &u.Email, &u.DisplayName, &u.Avatar); err != nil {
 		if err == sql.ErrNoRows {
 			return s, nil, nil
 		}

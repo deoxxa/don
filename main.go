@@ -3,6 +3,7 @@ package main // import "fknsrs.biz/p/don"
 import (
 	"crypto/tls"
 	"database/sql"
+	"encoding/json"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/Sirupsen/logrus"
+	"github.com/boltdb/bolt"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 	"github.com/gorilla/sessions"
@@ -36,6 +38,7 @@ var (
 	app                   = kingpin.New("don", "Really really small OStatus node.")
 	addr                  = app.Flag("addr", "Address to listen on.").Envar("ADDR").Default(":5000").String()
 	database              = app.Flag("database", "Where to put the SQLite database.").Envar("DATABASE").Default("don.db").String()
+	cache                 = app.Flag("cache", "Where to put the cache file.").Envar("CACHE").Default("don.cache").String()
 	publicURL             = app.Flag("public_url", "URL to use for callbacks etc.").Envar("PUBLIC_URL").Required().String()
 	logLevel              = app.Flag("log_level", "How much to log.").Default("INFO").Envar("LOG_LEVEL").Enum("DEBUG", "INFO", "WARN", "ERROR", "FATAL", "PANIC")
 	pubsubRefreshInterval = app.Flag("pubsub_refresh_interval", "PubSub subscription refresh interval.").Default("15m").Envar("PUBSUB_REFRESH_INTERVAL").Duration()
@@ -104,13 +107,19 @@ func main() {
 	migrationBox := cfg.MustFindBox("migrations")
 	buildBox := cfg.MustFindBox("build")
 
-	db, err := sql.Open("sqlite3", *database)
+	sqlDB, err := sql.Open("sqlite3", *database)
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
+	defer sqlDB.Close()
 
-	if err := migrate(db, migrationBox); err != nil {
+	boltDB, err := bolt.Open(*cache, 0644, nil)
+	if err != nil {
+		panic(err)
+	}
+	defer boltDB.Close()
+
+	if err := migrate(sqlDB, migrationBox); err != nil {
 		panic(err)
 	}
 
@@ -145,15 +154,14 @@ func main() {
 		panic(err)
 	}
 
-	templateFeed := template.Must(template.Must(rootTemplate.Clone()).Parse(templateBox.MustString("page_feed.html")))
 	templateReact := template.Must(template.Must(rootTemplate.Clone()).Parse(templateBox.MustString("page_react.html")))
 
-	a, err := NewApp(db, ss, renderer, templateReact, buildBox)
+	a, err := NewApp(sqlDB, boltDB, ss, renderer, templateReact, buildBox)
 	if err != nil {
 		panic(err)
 	}
 
-	psc := pubsub.NewClient(*publicURL+"/pubsub", pubsub.NewSQLiteState(db), a.OnMessage)
+	psc := pubsub.NewClient(*publicURL+"/pubsub", pubsub.NewSQLiteState(sqlDB), a.OnMessage)
 
 	go func() {
 		time.Sleep(time.Second * 2)
@@ -187,7 +195,13 @@ func main() {
 	m.Methods("POST").Path("/logout").HandlerFunc(a.HandlerFor(a.handleLogoutPost))
 
 	m.Methods("GET").Path("/show-feed").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		feed, err := activitystreams.Fetch(r.URL.Query().Get("url"))
+		feedData, _, err := a.FeedCache.Get(r.URL.Query().Get("url"), nil)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		feed, err := activitystreams.Parse(feedData)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
@@ -205,23 +219,16 @@ func main() {
 		rw.Header().Set("content-type", "text/html; charset=utf8")
 		rw.WriteHeader(http.StatusOK)
 
-		if feed.Author != nil {
-			if err := savePerson(db, r.URL.Query().Get("url"), feed.Author); err != nil {
+		for _, e := range feed.Activities {
+			if err := a.saveActivity(&e); err != nil {
 				http.Error(rw, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
 
-		for _, e := range feed.Entry {
-			if err := saveEntry(db, r.URL.Query().Get("url"), &e); err != nil {
-				http.Error(rw, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		}
-
-		if err := templateFeed.Execute(rw, map[string]interface{}{"Feed": feed}); err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
+		rw.Header().Set("content-type", "application/json")
+		if err := json.NewEncoder(rw).Encode(feed); err != nil {
+			panic(err)
 		}
 	})
 
@@ -232,7 +239,7 @@ func main() {
 		}
 
 		var feedURL string
-		if err := db.QueryRow("select feed_url from people where email = $1", strings.TrimPrefix(user, "acct:")).Scan(&feedURL); err == nil {
+		if err := sqlDB.QueryRow("select feed_url from people where email = $1", strings.TrimPrefix(user, "acct:")).Scan(&feedURL); err == nil {
 			rw.Header().Set("location", "/show-feed?"+url.Values{"url": []string{feedURL}}.Encode())
 			rw.WriteHeader(http.StatusSeeOther)
 			return

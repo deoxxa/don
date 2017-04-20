@@ -64,7 +64,7 @@ func (a *App) userLogin(username, password string) (*User, error) {
 	var u User
 	var hash string
 
-	if err := a.DB.QueryRow("select id, created_at, username, email, hash, display_name, avatar from users where username = $1", username).Scan(&u.ID, &u.CreatedAt, &u.Username, &u.Email, &hash, &u.DisplayName, &u.Avatar); err != nil {
+	if err := a.SQLDB.QueryRow("select id, created_at, username, email, hash, display_name, avatar from users where username = $1", username).Scan(&u.ID, &u.CreatedAt, &u.Username, &u.Email, &hash, &u.DisplayName, &u.Avatar); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.Wrap(errLoginUserNotFound, "App.userLogin")
 		}
@@ -78,7 +78,7 @@ func (a *App) userLogin(username, password string) (*User, error) {
 	}
 
 	if newHash != "" {
-		if _, err := a.DB.Exec("update users set hash = $1 where id = $2 and hash = $3", newHash, u.ID, hash); err != nil {
+		if _, err := a.SQLDB.Exec("update users set hash = $1 where id = $2 and hash = $3", newHash, u.ID, hash); err != nil {
 			return nil, errors.Wrap(err, "App.userLogin")
 		}
 	}

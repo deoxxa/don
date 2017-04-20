@@ -1,4 +1,4 @@
-package activitystreams2
+package activitystreams
 
 import (
 	"encoding/xml"

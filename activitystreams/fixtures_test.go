@@ -1,4 +1,4 @@
-package activitystreams2
+package activitystreams
 
 const fixtureImpliedActivity1 = `
 <?xml version="1.0" encoding="UTF-8"?>
