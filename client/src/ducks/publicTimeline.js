@@ -2,17 +2,43 @@
 
 import axios from 'axios';
 
-export type Post = {
+export type ASPerson = {
   id: string,
-  authorName: ?string,
-  authorAcct: ?string,
+  host: string,
+  firstSeen: string,
+  permalink: string,
+  displayName: ?string,
+  avatar: ?string,
+  summary: ?string,
+};
+
+export type ASObject = {
+  id: string,
+  name: ?string,
+  summary: ?string,
+  representativeImage: ?string,
+  permalink: ?string,
+  objectType: ?string,
+  content: ?string,
+};
+
+export type ASActivity = {
+  id: string,
+  permalink: string,
+  actorID: ?string,
+  actor: ?ASPerson,
+  objectID: string,
+  object: ASObject,
+  verb: string,
   time: string,
-  contentHTML: string,
+  title: ?string,
+  inReplyToID: ?string,
+  inReplyToURL: ?string,
 };
 
 export type State = {
   loading: boolean,
-  posts: ?Array<Post>,
+  activities: ?Array<ASActivity>,
   error: ?Error,
 };
 
@@ -20,31 +46,30 @@ export const publicTimelineError = (error: Error) => ({
   type: 'don/publicTimeline/ERROR',
   payload: { error },
 });
-export const publicTimelineLoaded = (posts: Array<Post>) => ({
+export const publicTimelineLoaded = (activities: Array<ASActivity>) => ({
   type: 'don/publicTimeline/LOADED',
-  payload: { posts },
+  payload: { activities },
 });
 export const publicTimelineLoading = () => ({
   type: 'don/publicTimeline/LOADING',
   payload: {},
 });
 
-export const publicTimelineFetch = () =>
-  (dispatch: (a: Object) => void) => {
-    dispatch(publicTimelineLoading());
+export const publicTimelineFetch = () => (dispatch: (a: Object) => void) => {
+  dispatch(publicTimelineLoading());
 
-    return axios
-      .get('/')
-      .then(
-        ({ data: { publicTimeline: { posts } } }) =>
-          dispatch(publicTimelineLoaded(posts)),
-        error => dispatch(publicTimelineError(error))
-      );
-  };
+  return axios
+    .get('/')
+    .then(
+      ({ data: { publicTimeline: { activities } } }) =>
+        dispatch(publicTimelineLoaded(activities)),
+      error => dispatch(publicTimelineError(error))
+    );
+};
 
 const defaultState = {
   loading: false,
-  posts: null,
+  activities: null,
   error: null,
 };
 
@@ -52,7 +77,10 @@ export default (
   state: State = defaultState,
   action:
     | { type: 'don/publicTimeline/ERROR', payload: { error: Error } }
-    | { type: 'don/publicTimeline/LOADED', payload: { posts: Array<Post> } }
+    | {
+        type: 'don/publicTimeline/LOADED',
+        payload: { activities: Array<ASActivity> },
+      }
     | { type: 'don/publicTimeline/LOADING', payload: {} }
 ) => {
   switch (action.type) {
@@ -67,7 +95,7 @@ export default (
         ...state,
         loading: false,
         error: null,
-        posts: action.payload.posts,
+        activities: action.payload.activities,
       };
     case 'don/publicTimeline/LOADING':
       return {

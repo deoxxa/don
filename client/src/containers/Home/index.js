@@ -8,7 +8,7 @@ import { NavLink } from 'react-router-dom';
 import { publicTimelineFetch } from 'ducks/publicTimeline';
 import type { State as PublicTimelineState } from 'ducks/publicTimeline';
 
-import PublicTimelinePost from 'components/PublicTimelinePost';
+import PublicTimelineActivity from 'components/PublicTimelineActivity';
 
 import styles from './styles.css';
 
@@ -19,15 +19,15 @@ class Home extends Component {
   };
 
   componentDidMount() {
-    const { publicTimeline: { posts }, publicTimelineFetch } = this.props;
+    const { publicTimeline: { activities }, publicTimelineFetch } = this.props;
 
-    if (!Array.isArray(posts)) {
+    if (!Array.isArray(activities)) {
       publicTimelineFetch();
     }
   }
 
   render() {
-    const { publicTimeline: { posts } } = this.props;
+    const { publicTimeline: { activities } } = this.props;
 
     return (
       <div>
@@ -42,8 +42,8 @@ class Home extends Component {
           Here are some posts from the public timeline!
         </h1>
 
-        {(posts || [])
-          .map(post => <PublicTimelinePost key={post.id} post={post} />)}
+        {(activities || [])
+          .map(activity => <PublicTimelineActivity key={activity.id} activity={activity} />)}
       </div>
     );
   }
@@ -57,7 +57,7 @@ Home.Link = withRouter(
     { publicTimelineFetch }
   )(({
     history: { push },
-    publicTimeline: { posts },
+    publicTimeline: { activities },
     publicTimelineFetch,
     children,
     ...rest
@@ -72,7 +72,7 @@ Home.Link = withRouter(
       onClick={ev => {
         ev.preventDefault();
 
-        if (Array.isArray(posts)) {
+        if (Array.isArray(activities)) {
           push('/');
         } else {
           publicTimelineFetch().then(() => push('/'));
