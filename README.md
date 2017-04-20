@@ -10,6 +10,15 @@ I'm not sure what it'll end up being. Right now it's ~~just an experiment in
 plugging different protocols together~~ a rudimentary read-only client. Maybe
 it'll be a full node implementation, but maybe not.
 
+## Beware!
+
+I'm changing lots of things really often right now. I can't guarantee that
+you'll be able to upgrade from one version to the next without a lot of manual
+intervention at the moment. Once I've got some of the schemas and APIs nailed
+down, I'll enact a stability policy. Until then, I'll try to keep the _really
+bad_ breaking changes to a minimum, and I'll try to batch them up whenever I
+can.
+
 ## Prebuilt Binaries
 
 You can download a binary [from bintray](https://bintray.com/deoxxa/don/portable/dev).
