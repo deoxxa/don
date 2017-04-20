@@ -1,6 +1,8 @@
 package commonxml
 
 type Link struct {
+	HasAttributes
+
 	Rel      string `xml:"rel,attr,omitempty" json:"rel,omitempty"`
 	Type     string `xml:"type,attr,omitempty" json:"type,omitempty"`
 	Href     string `xml:"href,attr" json:"href,omitempty"`
