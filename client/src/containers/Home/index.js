@@ -4,6 +4,7 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router';
 import { NavLink } from 'react-router-dom';
+import URLSearchParams from 'url-search-params';
 
 import sort, { reverseCompare } from 'lib/sort';
 
@@ -20,6 +21,7 @@ import styles from './styles.css';
 
 class Home extends Component {
   props: {
+    location: { search: ?string },
     authentication: AuthenticationState,
     publicTimeline: PublicTimelineState,
     publicTimelineFetch: () => Promise<void>,
@@ -38,32 +40,38 @@ class Home extends Component {
 
   componentDidMount() {
     const {
+      location,
       publicTimeline: { activities },
-      publicTimelineAdd,
       publicTimelineFetch,
     } = this.props;
 
     if (!Array.isArray(activities)) {
-      publicTimelineFetch();
+      const params = new URLSearchParams(location.search || '');
+
+      publicTimelineFetch({
+        before: params.get('before'),
+        after: params.get('after'),
+        q: params.get('q'),
+      });
     }
 
-    if (!this.events) {
-      this.events = new EventSource('/api/feed');
-      this.events.addEventListener('activity', ({ data }: { data: string }) => {
-        try {
-          publicTimelineAdd(JSON.parse(data));
-        } catch (e) {
-          /* nothing */
-        }
-      });
+    this.connectEvents(this.props);
+  }
+
+  componentWillReceiveProps(nextProps) {
+    const { publicTimelineFetch } = nextProps;
+
+    const oldParams = new URLSearchParams(this.props.location.search || '');
+    const newParams = new URLSearchParams(nextProps.location.search || '');
+
+    if (oldParams.get('q') !== newParams.get('q')) {
+      publicTimelineFetch({ q: newParams.get('q') });
+      this.reconnectEvents(nextProps);
     }
   }
 
   componentWillUnmount() {
-    if (this.events) {
-      this.events.close();
-      this.events = null;
-    }
+    this.disconnectEvents();
   }
 
   render() {
@@ -112,6 +120,36 @@ class Home extends Component {
         </div>
       </div>
     );
+  }
+
+  _feed: ?Object;
+
+  reconnectEvents(props) {
+    this.disconnectEvents();
+    this.connectEvents(props);
+  }
+
+  connectEvents(props) {
+    const { location: { search = '' }, publicTimelineAdd } = props;
+
+    const params = new URLSearchParams(search);
+
+    this._feed = new EventSource(`/api/feed?q=${params.get('q')}`);
+
+    this._feed.addEventListener('activity', ({ data }: { data: string }) => {
+      try {
+        publicTimelineAdd(JSON.parse(data));
+      } catch (e) {
+        /* nothing */
+      }
+    });
+  }
+
+  disconnectEvents() {
+    if (this._feed) {
+      this._feed.close();
+      this._feed = null;
+    }
   }
 }
 

@@ -59,11 +59,17 @@ export const publicTimelineAdd = (activity: ASActivity) => ({
   payload: { activity },
 });
 
-export const publicTimelineFetch = () => (dispatch: (a: Object) => void) => {
+export const publicTimelineFetch = ({
+  before,
+  after,
+  q,
+}: { before?: Date, after?: Date, q?: string }) => (
+  dispatch: (a: Object) => void
+) => {
   dispatch(publicTimelineLoading());
 
   return axios
-    .get('/')
+    .get('/', { params: { before, after, q } })
     .then(
       ({ data: { publicTimeline: { activities } } }) =>
         dispatch(publicTimelineLoaded(activities)),
@@ -73,7 +79,7 @@ export const publicTimelineFetch = () => (dispatch: (a: Object) => void) => {
 
 const defaultState = {
   loading: false,
-  activities: null,
+  activities: [],
   error: null,
 };
 

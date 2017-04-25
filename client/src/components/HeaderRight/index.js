@@ -39,8 +39,9 @@ const HeaderRight = ({
         name="q"
         className={styles.search}
         type="text"
-        placeholder="Search"
+        placeholder={user ? 'Search' : 'Log in to search'}
         defaultValue={new URLSearchParams(location.search).get('q')}
+        disabled={!user}
       />
     </form>
 
