@@ -55,7 +55,7 @@ var (
 	)
 )
 
-func (a *App) savePerson(p *activitystreams.Author) (*acct.URL, error) {
+func (a *App) savePerson(p *activitystreams.Author) (*Person, error) {
 	var permalink string
 	for _, l := range p.GetLinks("alternate") {
 		if l.Type == "text/html" && permalink == "" {
@@ -87,10 +87,21 @@ func (a *App) savePerson(p *activitystreams.Author) (*acct.URL, error) {
 	}
 	defer tx.Rollback()
 
-	var exists bool
-	var displayName, avatar, summary string
+	selectQuery := sqlbuilder.Select(peopleTable).Columns(
+		peopleTable.C("first_seen"),
+		peopleTable.C("display_name"),
+		peopleTable.C("avatar"),
+		peopleTable.C("summary"),
+	).Where(peopleTable.C("id").Eq(accountURL.String()))
+
+	selectQuerySQL, selectQueryVars, err := selectQuery.ToSql()
+	if err != nil {
+		return nil, errors.Wrap(err, "App.savePerson: couldn't make select query")
+	}
+
 	var firstSeen time.Time
-	if err := tx.QueryRow("select 1, first_seen, display_name, avatar, summary from people where id = $1", accountURL.String()).Scan(&exists, &firstSeen, &displayName, &avatar, &summary); err != nil && err != sql.ErrNoRows {
+	var displayName, avatar, summary string
+	if err := tx.QueryRow(selectQuerySQL, selectQueryVars...).Scan(&firstSeen, &displayName, &avatar, &summary); err != nil && err != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "App.savePerson: couldn't query for existing person")
 	}
 
@@ -109,18 +120,57 @@ func (a *App) savePerson(p *activitystreams.Author) (*acct.URL, error) {
 		changed = true
 	}
 
-	if !exists {
+	if firstSeen.IsZero() {
 		firstSeen = time.Now()
-		if _, err := tx.Exec("insert into people (id, host, first_seen, permalink, display_name, avatar, summary) values ($1, $2, $3, $4, $5, $6, $7)", accountURL.String(), accountURL.Host, firstSeen, permalink, displayName, avatar, summary); err != nil {
+
+		insertQuery := sqlbuilder.Insert(peopleTable).Columns(
+			peopleTable.C("id"),
+			peopleTable.C("host"),
+			peopleTable.C("first_seen"),
+			peopleTable.C("permalink"),
+			peopleTable.C("display_name"),
+			peopleTable.C("avatar"),
+			peopleTable.C("summary"),
+		).Values(accountURL.String(), accountURL.Host, firstSeen, permalink, displayName, avatar, summary)
+
+		insertQuerySQL, insertQueryVars, err := insertQuery.ToSql()
+		if err != nil {
+			return nil, errors.Wrap(err, "App.savePerson: couldn't make insert query")
+		}
+
+		if _, err := tx.Exec(insertQuerySQL, insertQueryVars...); err != nil {
 			return nil, errors.Wrap(err, "App.savePerson: couldn't save person to db")
 		}
 	} else if changed {
-		if _, err := tx.Exec("update people set display_name = $1, avatar = $2, summary = $3 where id = $4", displayName, avatar, summary, accountURL.String()); err != nil {
+		updateQuery := sqlbuilder.Update(peopleTable).
+			Set(peopleTable.C("display_name"), displayName).
+			Set(peopleTable.C("avatar"), avatar).
+			Set(peopleTable.C("summary"), summary).
+			Where(peopleTable.C("id").Eq(accountURL.String()))
+
+		updateQuerySQL, updateQueryVars, err := updateQuery.ToSql()
+		if err != nil {
+			return nil, errors.Wrap(err, "App.savePerson: couldn't make update query")
+		}
+
+		if _, err := tx.Exec(updateQuerySQL, updateQueryVars...); err != nil {
 			return nil, errors.Wrap(err, "App.savePerson: couldn't update person in db")
 		}
 	}
 
-	return accountURL, errors.Wrap(tx.Commit(), "App.savePerson: couldn't commit transaction")
+	if err := tx.Commit(); err != nil {
+		return nil, errors.Wrap(err, "App.savePerson: couldn't commit transaction")
+	}
+
+	return &Person{
+		ID:          accountURL.String(),
+		Host:        accountURL.Host,
+		FirstSeen:   firstSeen,
+		Permalink:   permalink,
+		DisplayName: &displayName,
+		Avatar:      &avatar,
+		Summary:     &summary,
+	}, nil
 }
 
 func (a *App) saveActivity(e activitystreams.ActivityLike) error {
@@ -140,21 +190,26 @@ func (a *App) saveActivity(e activitystreams.ActivityLike) error {
 		}
 	}
 
+	var person *Person
+
 	var actorID sql.NullString
 	if actor := e.GetActor(); actor != nil {
-		if u, err := a.savePerson(actor); err != nil {
+		if p, err := a.savePerson(actor); err != nil {
 			return errors.Wrap(err, "saveActivity: couldn't save author")
-		} else if u != nil {
+		} else if p != nil {
 			actorID.Valid = true
-			actorID.String = u.String()
+			actorID.String = p.ID
+
+			person = p
 		}
 	}
 
-	if err := a.saveObject(o); err != nil {
+	object, err := a.saveObject(o)
+	if err != nil {
 		return errors.Wrap(err, "saveActivity: couldn't save object")
 	}
 
-	if err := a.saveObject(e); err != nil {
+	if _, err := a.saveObject(e); err != nil {
 		return errors.Wrap(err, "saveActivity: couldn't save activity as object")
 	}
 
@@ -164,45 +219,111 @@ func (a *App) saveActivity(e activitystreams.ActivityLike) error {
 	}
 	defer tx.Rollback()
 
-	var exists int
-	if err := tx.QueryRow("select count(*) from activities where id = $1", e.GetID()).Scan(&exists); err != nil {
+	var rowID sql.NullInt64
+	if err := tx.QueryRow("select ROWID from activities where id = $1", e.GetID()).Scan(&rowID); err != nil && err != sql.ErrNoRows {
 		return errors.Wrap(err, "saveActivity: couldn't query for existing activities")
 	}
 
-	if exists == 0 {
-		var inReplyToID, inReplyToURL sql.NullString
-		if e, ok := e.(activitystreams.HasInReplyTo); ok {
-			if s := e.GetInReplyTo(); s != nil {
-				inReplyToID.Valid = true
-				inReplyToID.String = s.Ref
+	var inReplyToID, inReplyToURL sql.NullString
+	if e, ok := e.(activitystreams.HasInReplyTo); ok {
+		if s := e.GetInReplyTo(); s != nil {
+			inReplyToID.Valid = true
+			inReplyToID.String = s.Ref
 
-				inReplyToURL.Valid = true
-				inReplyToURL.String = s.Href
-			}
-		}
-
-		if _, err := tx.Exec("insert into activities (id, permalink, actor, object, verb, time, title, in_reply_to_id, in_reply_to_url) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)", e.GetID(), e.GetPermalink(), actorID, e.GetObject().GetID(), e.GetVerb(), e.GetTime(), e.GetTitle(), inReplyToID, inReplyToURL); err != nil {
-			return errors.Wrap(err, "saveActivity: couldn't save activity to db")
+			inReplyToURL.Valid = true
+			inReplyToURL.String = s.Href
 		}
 	}
 
-	return errors.Wrap(tx.Commit(), "saveActivity: couldn't commit transaction")
+	if rowID.Valid {
+		return nil
+	}
+
+	res, err := tx.Exec("insert into activities (id, permalink, actor, object, verb, time, title, in_reply_to_id, in_reply_to_url) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)", e.GetID(), e.GetPermalink(), actorID, e.GetObject().GetID(), e.GetVerb(), e.GetTime(), e.GetTitle(), inReplyToID, inReplyToURL)
+	if err != nil {
+		return errors.Wrap(err, "saveActivity: couldn't save activity to db")
+	}
+
+	insertID, err := res.LastInsertId()
+	if err != nil {
+		return errors.Wrap(err, "saveActivity: couldn't get row id")
+	}
+
+	rowID.Valid = true
+	rowID.Int64 = insertID
+
+	if err := tx.Commit(); err != nil {
+		return errors.Wrap(err, "saveActivity: couldn't commit transaction")
+	}
+
+	activity := Activity{
+		ID:        e.GetID(),
+		Permalink: e.GetPermalink(),
+		ObjectID:  object.ID,
+		Object:    *object,
+		Verb:      e.GetVerb(),
+		Time:      e.GetTime(),
+		Title:     e.GetTitle(),
+	}
+
+	if person != nil {
+		activity.ActorID = &person.ID
+		activity.Actor = person
+	}
+
+	if inReplyToID.Valid {
+		activity.InReplyToID = &inReplyToID.String
+	}
+	if inReplyToURL.Valid {
+		activity.InReplyToURL = &inReplyToURL.String
+	}
+
+	a.Emit(&ActivityEvent{RowID: rowID.Int64, Activity: &activity})
+
+	return nil
 }
 
-func (a *App) saveObject(o activitystreams.ObjectLike) error {
+func (a *App) saveObject(o activitystreams.ObjectLike) (*Object, error) {
 	tx, err := a.SQLDB.Begin()
 	if err != nil {
-		return errors.Wrap(err, "saveObject: couldn't begin transaction")
+		return nil, errors.Wrap(err, "saveObject: couldn't begin transaction")
 	}
 	defer tx.Rollback()
 
-	var exists int
-	if err := tx.QueryRow("select count(*) from objects where id = $1", o.GetID()).Scan(&exists); err != nil {
-		return errors.Wrap(err, "saveObject: couldn't query for existing objects")
+	var id, name, summary, representativeImage, permalink, objectType, content sql.NullString
+	if err := tx.QueryRow("select id, name, summary, representative_image, permalink, object_type, content from objects where id = $1", o.GetID()).Scan(&id, &name, &summary, &representativeImage, &permalink, &objectType, &content); err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "saveObject: couldn't query for existing objects")
 	}
 
-	if exists == 0 {
-		var content sql.NullString
+	if !id.Valid {
+		id.Valid = true
+		id.String = o.GetID()
+
+		if s := o.GetName(); s != "" {
+			name.Valid = true
+			name.String = s
+		}
+
+		if s := o.GetSummary(); s != "" {
+			summary.Valid = true
+			summary.String = s
+		}
+
+		if s := o.GetRepresentativeImage(); s != "" {
+			representativeImage.Valid = true
+			representativeImage.String = s
+		}
+
+		if s := o.GetPermalink(); s != "" {
+			permalink.Valid = true
+			permalink.String = s
+		}
+
+		if s := o.GetObjectType(); s != "" {
+			objectType.Valid = true
+			objectType.String = s
+		}
+
 		if hc, ok := o.(activitystreams.HasContent); ok {
 			if c := hc.GetContent(); c != "" {
 				content.Valid = true
@@ -211,16 +332,42 @@ func (a *App) saveObject(o activitystreams.ObjectLike) error {
 		}
 
 		if _, err := tx.Exec("insert into objects (id, name, summary, representative_image, permalink, object_type, content) values ($1, $2, $3, $4, $5, $6, $7)", o.GetID(), o.GetName(), o.GetSummary(), o.GetRepresentativeImage(), o.GetPermalink(), o.GetObjectType(), content); err != nil {
-			return errors.Wrap(err, "saveObject: couldn't save object to db")
+			return nil, errors.Wrap(err, "saveObject: couldn't save object to db")
 		}
 	}
 
-	return errors.Wrap(tx.Commit(), "saveObject: couldn't commit transaction")
+	if err := tx.Commit(); err != nil {
+		return nil, errors.Wrap(err, "saveObject: couldn't commit transaction")
+	}
+
+	object := &Object{ID: id.String}
+
+	if name.Valid {
+		object.Name = &name.String
+	}
+	if summary.Valid {
+		object.Summary = &summary.String
+	}
+	if representativeImage.Valid {
+		object.RepresentativeImage = &representativeImage.String
+	}
+	if permalink.Valid {
+		object.Permalink = &permalink.String
+	}
+	if objectType.Valid {
+		object.ObjectType = &objectType.String
+	}
+	if content.Valid {
+		object.Content = &content.String
+	}
+
+	return object, nil
 }
 
 type getPublicTimelineArgs struct {
-	After  time.Time `schema:"after"`
-	Before time.Time `schema:"before"`
+	After   time.Time `schema:"after"`
+	Before  time.Time `schema:"before"`
+	Account string    `schema:"account"`
 }
 
 func (a *App) getPublicTimeline(args getPublicTimelineArgs) ([]Activity, error) {
@@ -257,11 +404,20 @@ func (a *App) getPublicTimeline(args getPublicTimelineArgs) ([]Activity, error) 
 		OrderBy(true, activitiesTable.C("time")).
 		Limit(50)
 
+	var conditions []sqlbuilder.Condition
+
 	if !args.After.IsZero() {
-		qb = qb.Where(activitiesTable.C("time").Gt(args.After))
+		conditions = append(conditions, activitiesTable.C("time").Gt(args.After))
 	}
 	if !args.Before.IsZero() {
-		qb = qb.Where(activitiesTable.C("time").Lt(args.Before))
+		conditions = append(conditions, activitiesTable.C("time").Lt(args.Before))
+	}
+	if args.Account != "" {
+		conditions = append(conditions, activitiesTable.C("actor").Eq("acct:"+strings.TrimPrefix(strings.TrimPrefix(args.Account, "@"), "acct:")))
+	}
+
+	if len(conditions) > 0 {
+		qb = qb.Where(sqlbuilder.And(conditions...))
 	}
 
 	q, vars, err := qb.ToSql()

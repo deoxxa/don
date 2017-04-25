@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"html/template"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"sync"
 	"time"
 
 	"fknsrs.biz/p/bcache"
@@ -25,25 +27,37 @@ import (
 )
 
 type App struct {
-	SQLDB    *sql.DB
+	SQLDB    DB
 	BoltDB   *bolt.DB
 	Store    sessions.Store
 	Renderer react.Renderer
 	Template *template.Template
 	BuildBox *rice.Box
 
+	listeners    map[chan *ActivityEvent]struct{}
+	listenerLock sync.RWMutex
+
 	AccountURLCache *bcache.Cache
 	FeedCache       *bcache.Cache
 }
 
 func NewApp(sqlDB *sql.DB, boltDB *bolt.DB, store sessions.Store, renderer react.Renderer, template *template.Template, buildBox *rice.Box) (*App, error) {
+	db := &dbLogger{db: sqlDB}
+
 	a := &App{
-		SQLDB:    sqlDB,
-		BoltDB:   boltDB,
-		Store:    store,
-		Renderer: renderer,
-		Template: template,
-		BuildBox: buildBox,
+		SQLDB:     db,
+		BoltDB:    boltDB,
+		Store:     store,
+		Renderer:  renderer,
+		Template:  template,
+		BuildBox:  buildBox,
+		listeners: make(map[chan *ActivityEvent]struct{}),
+	}
+
+	if *sqlQueryLog {
+		db.l = append(db.l, func(begin time.Time, dur time.Duration, name, file string, line int, transactionID string, sql string, vars []interface{}) {
+			fmt.Printf("%s (%s) %s:%s:%d [tx/%s]\n%s\n", begin.Format(time.RFC3339), dur.String(), name, file, line, transactionID, printQuery(sql, vars))
+		})
 	}
 
 	a.AccountURLCache = bcache.New(
@@ -94,6 +108,43 @@ func NewApp(sqlDB *sql.DB, boltDB *bolt.DB, store sessions.Store, renderer react
 	}
 
 	return a, nil
+}
+
+func (a *App) AddListener(ch chan *ActivityEvent) {
+	a.listenerLock.Lock()
+	defer a.listenerLock.Unlock()
+	a.listeners[ch] = struct{}{}
+}
+
+func (a *App) RemoveListener(ch chan *ActivityEvent) {
+	a.listenerLock.Lock()
+	defer a.listenerLock.Unlock()
+	delete(a.listeners, ch)
+}
+
+func (a *App) Emit(ev *ActivityEvent) error {
+	if ev.JSON == nil {
+		d, err := json.Marshal(ev.Activity)
+		if err != nil {
+			return err
+		}
+
+		ev.JSON = d
+	}
+
+	a.listenerLock.RLock()
+	defer a.listenerLock.RUnlock()
+
+	for ch := range a.listeners {
+		select {
+		case ch <- ev:
+			// nothing
+		default:
+			close(ch)
+		}
+	}
+
+	return nil
 }
 
 func (a *App) OnMessage(id string, s *pubsub.Subscription, rd io.ReadCloser) {

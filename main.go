@@ -4,6 +4,8 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
+	"encoding/xml"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/Sirupsen/logrus"
+	"github.com/bernerdschaefer/eventsource"
 	"github.com/boltdb/bolt"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
@@ -47,6 +50,7 @@ var (
 	externalJS            = app.Flag("external_js", "Load client JS from an external location.").Envar("EXTERNAL_JS").String()
 	cookieSigningKey      = app.Flag("cookie_signing_key", "Key for signing cookies.").Envar("COOKIE_SIGNING_KEY").Required().HexBytes()
 	cookieEncryptionKey   = app.Flag("cookie_encryption_key", "Key for encrypting cookies.").Envar("COOKIE_ENCRYPTION_KEY").Required().HexBytes()
+	sqlQueryLog           = app.Flag("sql_query_log", "Enable SQL query logging.").Envar("SQL_QUERY_LOG").Bool()
 )
 
 var decoder *schema.Decoder
@@ -58,7 +62,7 @@ func init() {
 func main() {
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
-	sqlbuilder.SetDialect(dialects.Sqlite{})
+	sqlbuilder.SetDialect(dialects.Postgresql{})
 
 	ll, err := logrus.ParseLevel(*logLevel)
 	if err != nil {
@@ -194,6 +198,73 @@ func main() {
 	m.Methods("GET").Path("/logout").HandlerFunc(a.HandlerFor(a.handleLogoutGet))
 	m.Methods("POST").Path("/logout").HandlerFunc(a.HandlerFor(a.handleLogoutPost))
 
+	m.Methods("GET").Path("/api/feed").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		if _, err := a.StandardContext(rw, r); err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		cn, ok := rw.(http.CloseNotifier)
+		if !ok {
+			http.Error(rw, "couldn't make CloseNotifier out of request", http.StatusInternalServerError)
+			return
+		}
+
+		stop := cn.CloseNotify()
+		ch := make(chan *ActivityEvent, 25)
+
+		a.AddListener(ch)
+		defer func() { a.RemoveListener(ch) }()
+
+		rw.Header().Set("content-type", "text/event-stream")
+		rw.WriteHeader(http.StatusOK)
+
+		enc := eventsource.NewEncoder(rw)
+
+	loop:
+		for {
+			select {
+			case <-stop:
+				break loop
+			case ev := <-ch:
+				if err := enc.Encode(eventsource.Event{
+					Type: "activity",
+					ID:   fmt.Sprintf("%d", ev.RowID),
+					Data: ev.JSON,
+				}); err != nil {
+					panic(err)
+				}
+
+				if err := enc.Flush(); err != nil {
+					panic(err)
+				}
+			case <-time.After(time.Second * 30):
+				if err := enc.WriteField("", []byte("heartbeat")); err != nil {
+					panic(err)
+				}
+
+				if err := enc.Flush(); err != nil {
+					panic(err)
+				}
+			}
+		}
+	})
+
+	m.Methods("POST").Path("/ingest-xml").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		var f activitystreams.Feed
+
+		if err := xml.NewDecoder(r.Body).Decode(&f); err != nil {
+			logrus.WithError(err).Debug("ingest-xml: couldn't parse body")
+			return
+		}
+
+		for _, e := range f.Activities {
+			if err := a.saveActivity(&e); err != nil {
+				panic(err)
+			}
+		}
+	})
+
 	m.Methods("GET").Path("/show-feed").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		feedData, _, err := a.FeedCache.Get(r.URL.Query().Get("url"), nil)
 		if err != nil {
@@ -238,58 +309,51 @@ func main() {
 			user = "acct:" + user
 		}
 
-		var feedURL string
-		if err := sqlDB.QueryRow("select feed_url from people where email = $1", strings.TrimPrefix(user, "acct:")).Scan(&feedURL); err == nil {
-			rw.Header().Set("location", "/show-feed?"+url.Values{"url": []string{feedURL}}.Encode())
-			rw.WriteHeader(http.StatusSeeOther)
-			return
-		} else if err != sql.ErrNoRows {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
 		acct, err := acct.FromString(user)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		hm, err := hostmeta.Fetch(acct.Host)
+		wf, err := webfinger.Fetch(webfinger.MakeURL(acct.Host, acct.String(), nil))
 		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		lrdd := hm.GetLink("lrdd")
-		if lrdd == nil {
-			http.Error(rw, "no lrdd link found in host metadata", http.StatusInternalServerError)
-			return
-		}
-
-		var lrddHref string
-		switch {
-		case lrdd.Href != "":
-			lrddHref = lrdd.Href
-		case lrdd.Template != "":
-			lrddHrefTemplate, err := uritemplates.Parse(lrdd.Template)
+			hm, err := hostmeta.Fetch(acct.Host)
 			if err != nil {
 				http.Error(rw, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
-			s, err := lrddHrefTemplate.Expand(map[string]interface{}{"uri": acct.String()})
+			lrdd := hm.GetLink("lrdd")
+			if lrdd == nil {
+				http.Error(rw, "no lrdd link found in host metadata", http.StatusInternalServerError)
+				return
+			}
+
+			var lrddHref string
+			switch {
+			case lrdd.Href != "":
+				lrddHref = lrdd.Href
+			case lrdd.Template != "":
+				lrddHrefTemplate, err := uritemplates.Parse(lrdd.Template)
+				if err != nil {
+					http.Error(rw, err.Error(), http.StatusInternalServerError)
+					return
+				}
+
+				s, err := lrddHrefTemplate.Expand(map[string]interface{}{"uri": acct.String()})
+				if err != nil {
+					http.Error(rw, err.Error(), http.StatusInternalServerError)
+					return
+				}
+
+				lrddHref = s
+			}
+
+			wf, err = webfinger.Fetch(lrddHref)
 			if err != nil {
 				http.Error(rw, err.Error(), http.StatusInternalServerError)
 				return
 			}
-
-			lrddHref = s
-		}
-
-		wf, err := webfinger.Fetch(lrddHref)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
 		}
 
 		feedLink := wf.GetLink("http://schemas.google.com/g/2010#updates-from")
