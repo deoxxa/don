@@ -199,6 +199,12 @@ func main() {
 	m.Methods("POST").Path("/logout").HandlerFunc(a.HandlerFor(a.handleLogoutPost))
 
 	m.Methods("GET").Path("/api/feed").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		var args getPublicTimelineArgs
+		if err := decoder.Decode(&args, r.URL.Query()); err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		if _, err := a.StandardContext(rw, r); err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
@@ -227,6 +233,20 @@ func main() {
 			case <-stop:
 				break loop
 			case ev := <-ch:
+				if args.Q != "" {
+					if ev.Activity.Object.Content == nil {
+						continue
+					}
+
+					for _, s := range strings.Split(args.Q, " ") {
+						s = strings.TrimSpace(s)
+
+						if len(s) > 0 && !strings.Contains(*ev.Activity.Object.Content, s) {
+							continue loop
+						}
+					}
+				}
+
 				if err := enc.Encode(eventsource.Event{
 					Type: "activity",
 					ID:   fmt.Sprintf("%d", ev.RowID),

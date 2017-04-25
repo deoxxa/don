@@ -365,6 +365,7 @@ func (a *App) saveObject(o activitystreams.ObjectLike) (*Object, error) {
 }
 
 type getPublicTimelineArgs struct {
+	Q       string    `schema:"q"`
 	After   time.Time `schema:"after"`
 	Before  time.Time `schema:"before"`
 	Account string    `schema:"account"`
@@ -414,6 +415,22 @@ func (a *App) getPublicTimeline(args getPublicTimelineArgs) ([]Activity, error) 
 	}
 	if args.Account != "" {
 		conditions = append(conditions, activitiesTable.C("actor").Eq("acct:"+strings.TrimPrefix(strings.TrimPrefix(args.Account, "@"), "acct:")))
+	}
+
+	if args.Q != "" {
+		var l []sqlbuilder.Condition
+
+		for _, s := range strings.Split(args.Q, " ") {
+			s = strings.TrimSpace(s)
+
+			if len(s) > 0 {
+				l = append(l, objectsTable.C("content").Like("%"+s+"%"))
+			}
+		}
+
+		if len(l) > 0 {
+			conditions = append(conditions, sqlbuilder.And(l...))
+		}
 	}
 
 	if len(conditions) > 0 {

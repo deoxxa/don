@@ -15,6 +15,10 @@ func (a *App) handleHomeGet(r *http.Request, ar *AppResponse) *AppResponse {
 		return ar.WithError(err)
 	}
 
+	if activities == nil {
+		activities = []Activity{}
+	}
+
 	return ar.ShallowMergeState(map[string]interface{}{
 		"publicTimeline": map[string]interface{}{
 			"loading":    false,
