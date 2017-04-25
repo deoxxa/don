@@ -37,9 +37,17 @@
 			"Rev": "2efee857e7cfd4f3d0138cc3cbb1b4966962b93a"
 		},
 		{
+			"ImportPath": "github.com/bernerdschaefer/eventsource",
+			"Rev": "220e99a797633289b5472f80c2cd79a74d80a954"
+		},
+		{
 			"ImportPath": "github.com/boltdb/bolt",
 			"Comment": "v1.3.0-58-ge9cf4fa",
 			"Rev": "e9cf4fae01b5a8ff89d0ec6b32f0d9c9f79aefdd"
+		},
+		{
+			"ImportPath": "github.com/bwmarrin/snowflake",
+			"Rev": "02cc386c183a1bf89dcac8c8008bb465f69d3340"
 		},
 		{
 			"ImportPath": "github.com/daaku/go.zipexe",
