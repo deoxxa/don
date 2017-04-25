@@ -155,3 +155,48 @@ func TestDecodeNestedActivity(t *testing.T) {
 	assert.Equal(t, "http://activitystrea.ms/schema/1.0/note", object3.GetObjectType(), "NoteLike.GetObjectType")
 	assert.Equal(t, "Dear instance admins, I am the moderator for both sealion.club and freezepeach.xyz. I would like to reach out to you in the interests of compiling a few lists relating to whether our instances can communicate or not.<br /> <br /> It is in the interests of transparency, so that I can help my users by letting them know whether they can communicate with your instance or not. We don't yet have a visible way of knowing, and therefore I think it can cause confusion and frustration as I know it has for me. It has also come to my attention that knowing this helps for debugging purposes for admins, so we know whether it is a block or a bug messing things up. It saves time to know, and we can move onto making things better on our instances.<br /> <br /> I am still thinking how best to make things transparent, my intent is not to create a 'target list'... but to let my users know why they are having trouble contacting your instance if they are. That way they can decide what to do with that information, perhaps if they want to communicate then they can join another instance as well. I like to encourage people to join more than one, so they remain connected to the fediverse if something happens to their main one.<br /> <br /> I am considering creating a public list of instances that have us outright blocked and the reason for why. I also have two other lists, one for a reference point for the admins and a newer one for my personal reference point of everyone I know who can still communicate with us. I can use these two lists for clarity when people ask as well, as I know we've had a few users asking already.<br /> <br /> That is where you come in. In the interests of this list remaining civil, I want to include your reason for domain blocking (This is a full block of our domain) or domain sandboxing (This is where we don't appear on the public TL, but can communicate if your users follow us) us so I can get it accurate and neutral. I also want to hear from you if you don't, so I can add you to the list for my personal reference point which may also help in debugging issues.<br /> <br /> If you have any concerns, please get in touch with me about them.<br /> <br /> Once again, I would appreciate if people can re-post this out, or bring it to the attention of your admins. If you can point me in the right direction to communicate, that will also be helpful and make things quicker for me, especially in regards to mastodon instances. Thank you for your time and for reading this.", object3.GetContent(), "NoteLike.GetContent")
 }
+
+func TestDecodeFavoriteActivity(t *testing.T) {
+	var f Feed
+	if err := xml.Unmarshal([]byte(fixtureFavorite), &f); err != nil {
+		panic(err)
+	}
+
+	assert.Equal(t, "lambadalambda timeline", f.Title, "Feed.Title")
+	assert.Equal(t, "https://social.heldscal.la/api/statuses/user_timeline/23211.atom", f.ID, "Feed.ID")
+	assert.Equal(t, "2017-04-24T22:35:06Z", f.Updated.Format(time.RFC3339), "Feed.Updated")
+
+	activities := f.GetActivities()
+	assert.Len(t, activities, 1)
+
+	activity := activities[0]
+	assert.NotNil(t, activity)
+	assert.Equal(t, "tag:social.heldscal.la,2017-04-24:fave:23211:comment:1884807:2017-04-24T22:35:02+00:00", activity.GetID(), "Entry.GetID")
+	assert.Equal(t, "Favorite", activity.GetName(), "Entry.GetName")
+	assert.Equal(t, "", activity.GetSummary(), "Entry.GetSummary")
+	assert.Equal(t, "", activity.GetRepresentativeImage(), "Entry.GetRepresentativeImage")
+	assert.Equal(t, "https://social.heldscal.la/notice/1884843", activity.GetPermalink(), "Entry.GetPermalink")
+	assert.Equal(t, "", activity.GetObjectType(), "Entry.GetObjectType")
+	assert.Equal(t, "http://activitystrea.ms/schema/1.0/favorite", activity.GetVerb(), "Entry.GetVerb")
+	assert.Equal(t, "2017-04-24T22:35:02Z", activity.GetTime().Format(time.RFC3339), "Entry.GetTime")
+	assert.Equal(t, "Favorite", activity.GetTitle(), "Entry.GetTitle")
+
+	actor := activity.GetActor()
+	assert.NotNil(t, actor, "Entry.GetActor")
+	assert.Equal(t, "", actor.GetID(), "Author.GetID")
+	assert.Equal(t, "lambadalambda", actor.GetName(), "Author.GetName")
+	assert.Equal(t, "Call me Deacon Blues.", actor.GetSummary(), "Author.GetSummary")
+	assert.Equal(t, "http://activitystrea.ms/schema/1.0/person", actor.GetObjectType(), "Author.GetObjectType")
+	assert.Equal(t, "https://social.heldscal.la/lambadalambda", actor.GetPermalink(), "Author.GetPermalink")
+	assert.Equal(t, "", actor.GetRepresentativeImage(), "Author.GetRepresentativeImage")
+
+	object := activity.GetObject().(*Comment)
+	assert.NotNil(t, object, "Activity.GetObject")
+	assert.Equal(t, "tag:freezepeach.xyz,2017-04-24:noticeId=2223055:objectType=comment", object.GetID(), "Activity.GetObject.GetID")
+	assert.Equal(t, "New comment by hakui", object.GetName(), "Activity.GetObject.GetName")
+	assert.Equal(t, "", object.GetSummary(), "Activity.GetObject.GetSummary")
+	assert.Equal(t, "http://activitystrea.ms/schema/1.0/comment", object.GetObjectType(), "Activity.GetObject.GetObjectType")
+	assert.Equal(t, "", object.GetRepresentativeImage(), "Activity.GetObject.GetRepresentativeImage")
+	assert.Equal(t, "https://freezepeach.xyz/notice/2223055", object.GetPermalink(), "Activity.GetObject.GetPermalink")
+	assert.Equal(t, "@<a href=\"https://social.heldscal.la/user/23211\" class=\"h-card mention\" title=\"Constance Variable\">lambadalambda</a>\u00a0 <a href=\"https://freezepeach.xyz/file/2f735f572e4e6a937fd5d28cf42917da8ecf8350b189ed2636fe3c6f5ee330b1.jpg\" title=\"https://freezepeach.xyz/file/2f735f572e4e6a937fd5d28cf42917da8ecf8350b189ed2636fe3c6f5ee330b1.jpg\" class=\"attachment thumbnail\" rel=\"nofollow\">https://freezepeach.xyz/attachment/432218</a>", object.GetContent(), "Comment.GetContent")
+}

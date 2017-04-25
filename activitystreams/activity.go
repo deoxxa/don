@@ -40,6 +40,8 @@ func (a *Activity) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 				a.Object = &Activity{}
 			case "http://activitystrea.ms/schema/1.0/note":
 				a.Object = &Note{}
+			case "http://activitystrea.ms/schema/1.0/comment":
+				a.Object = &Comment{}
 			case "http://activitystrea.ms/schema/1.0/person":
 				a.Object = &Author{}
 			}

@@ -249,3 +249,71 @@ const fixtureNested = `
   </entry>
 </feed>
 `
+
+const fixtureFavorite = `
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xml:lang="en-US" xmlns="http://www.w3.org/2005/Atom" xmlns:activity="http://activitystrea.ms/spec/1.0/" xmlns:georss="http://www.georss.org/georss" xmlns:media="http://purl.org/syndication/atommedia" xmlns:ostatus="http://ostatus.org/schema/1.0" xmlns:poco="http://portablecontacts.net/spec/1.0" xmlns:statusnet="http://status.net/schema/api/1/" xmlns:thr="http://purl.org/syndication/thread/1.0">
+  <generator uri="https://gnu.io/social" version="1.0.2-dev">GNU social</generator>
+  <id>https://social.heldscal.la/api/statuses/user_timeline/23211.atom</id>
+  <title>lambadalambda timeline</title>
+  <subtitle>Updates from lambadalambda on social.heldscal.la!</subtitle>
+  <logo>https://social.heldscal.la/avatar/23211-96-20170416114255.jpeg</logo>
+  <updated>2017-04-24T22:35:06+00:00</updated>
+  <author>
+    <activity:object-type>http://activitystrea.ms/schema/1.0/person</activity:object-type>
+    <uri>https://social.heldscal.la/user/23211</uri>
+    <name>lambadalambda</name>
+    <summary>Call me Deacon Blues.</summary>
+    <link href="https://social.heldscal.la/lambadalambda" rel="alternate" type="text/html"/>
+    <link href="https://social.heldscal.la/avatar/23211-original-20170416114255.jpeg" media:height="236" media:width="236" rel="avatar" type="image/jpeg"/>
+    <link href="https://social.heldscal.la/avatar/23211-96-20170416114255.jpeg" media:height="96" media:width="96" rel="avatar" type="image/jpeg"/>
+    <link href="https://social.heldscal.la/avatar/23211-48-20170416114255.jpeg" media:height="48" media:width="48" rel="avatar" type="image/jpeg"/>
+    <link href="https://social.heldscal.la/avatar/23211-24-20170416114257.jpeg" media:height="24" media:width="24" rel="avatar" type="image/jpeg"/>
+    <poco:preferredUsername>lambadalambda</poco:preferredUsername>
+    <poco:displayName>Constance Variable</poco:displayName>
+    <poco:note>Call me Deacon Blues.</poco:note>
+    <poco:address>
+      <poco:formatted>Berlin</poco:formatted>
+    </poco:address>
+    <poco:urls>
+      <poco:type>homepage</poco:type>
+      <poco:value>https://heldscal.la</poco:value>
+      <poco:primary>true</poco:primary>
+    </poco:urls>
+    <followers url="https://social.heldscal.la/lambadalambda/subscribers"/>
+    <statusnet:profile_info local_id="23211"/>
+  </author>
+  <link href="https://social.heldscal.la/lambadalambda" rel="alternate" type="text/html"/>
+  <link href="https://social.heldscal.la/main/sup" rel="http://api.friendfeed.com/2008/03#sup" type="application/json"/>
+  <link href="https://social.heldscal.la/main/push/hub" rel="hub"/>
+  <link href="https://social.heldscal.la/main/salmon/user/23211" rel="salmon"/>
+  <link href="https://social.heldscal.la/main/salmon/user/23211" rel="http://salmon-protocol.org/ns/salmon-replies"/>
+  <link href="https://social.heldscal.la/main/salmon/user/23211" rel="http://salmon-protocol.org/ns/salmon-mention"/>
+  <link href="https://social.heldscal.la/api/statuses/user_timeline/23211.atom" rel="self" type="application/atom+xml"/>
+  <entry>
+    <id>tag:social.heldscal.la,2017-04-24:fave:23211:comment:1884807:2017-04-24T22:35:02+00:00</id>
+    <title>Favorite</title>
+    <content type="html">lambadalambda favorited something by hakui: @&lt;a href=&quot;https://social.heldscal.la/user/23211&quot; class=&quot;h-card mention&quot; title=&quot;Constance Variable&quot;&gt;lambadalambda&lt;/a&gt;  &lt;a href=&quot;https://freezepeach.xyz/file/2f735f572e4e6a937fd5d28cf42917da8ecf8350b189ed2636fe3c6f5ee330b1.jpg&quot; title=&quot;https://freezepeach.xyz/file/2f735f572e4e6a937fd5d28cf42917da8ecf8350b189ed2636fe3c6f5ee330b1.jpg&quot; class=&quot;attachment thumbnail&quot; rel=&quot;nofollow&quot;&gt;https://freezepeach.xyz/attachment/432218&lt;/a&gt;</content>
+    <link href="https://social.heldscal.la/notice/1884843" rel="alternate" type="text/html"/>
+    <activity:verb>http://activitystrea.ms/schema/1.0/favorite</activity:verb>
+    <published>2017-04-24T22:35:02+00:00</published>
+    <updated>2017-04-24T22:35:02+00:00</updated>
+    <activity:object>
+      <activity:object-type>http://activitystrea.ms/schema/1.0/comment</activity:object-type>
+      <id>tag:freezepeach.xyz,2017-04-24:noticeId=2223055:objectType=comment</id>
+      <title>New comment by hakui</title>
+      <content type="html">@&lt;a href=&quot;https://social.heldscal.la/user/23211&quot; class=&quot;h-card mention&quot; title=&quot;Constance Variable&quot;&gt;lambadalambda&lt;/a&gt;  &lt;a href=&quot;https://freezepeach.xyz/file/2f735f572e4e6a937fd5d28cf42917da8ecf8350b189ed2636fe3c6f5ee330b1.jpg&quot; title=&quot;https://freezepeach.xyz/file/2f735f572e4e6a937fd5d28cf42917da8ecf8350b189ed2636fe3c6f5ee330b1.jpg&quot; class=&quot;attachment thumbnail&quot; rel=&quot;nofollow&quot;&gt;https://freezepeach.xyz/attachment/432218&lt;/a&gt;</content>
+      <link href="https://freezepeach.xyz/notice/2223055" rel="alternate" type="text/html"/>
+      <status_net notice_id="1884807"/>
+    </activity:object>
+    <thr:in-reply-to href="https://freezepeach.xyz/notice/2223055" ref="tag:freezepeach.xyz,2017-04-24:noticeId=2223055:objectType=comment"/>
+    <link href="https://freezepeach.xyz/notice/2223055" rel="related"/>
+    <link href="https://social.heldscal.la/conversation/959064" rel="ostatus:conversation"/>
+    <ostatus:conversation href="https://social.heldscal.la/conversation/959064" local_id="959064" ref="tag:social.heldscal.la,2017-04-24:objectType=thread:nonce=38184df2a89c0e0a">tag:social.heldscal.la,2017-04-24:objectType=thread:nonce=38184df2a89c0e0a</ostatus:conversation>
+    <link href="http://activityschema.org/collection/public" ostatus:object-type="http://activitystrea.ms/schema/1.0/collection" rel="mentioned"/>
+    <link href="https://social.heldscal.la/api/statuses/show/1884843.atom" rel="self" type="application/atom+xml"/>
+    <link href="https://social.heldscal.la/api/statuses/show/1884843.atom" rel="edit" type="application/atom+xml"/>
+    <statusnet:notice_info local_id="1884843" source="unknown"/>
+  </entry>
+</feed>
+`
