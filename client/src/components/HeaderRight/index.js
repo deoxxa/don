@@ -15,17 +15,15 @@ import FontAwesome from 'components/FontAwesome';
 import defaultAvatarURL from './default-avatar.png';
 import styles from './styles.css';
 
-const HeaderRight = (
-  {
-    user,
-    history,
-    location,
-  }: {
-    user: ?User,
-    history: { push: (path: string) => void },
-    location: { search: string },
-  }
-) => (
+const HeaderRight = ({
+  user,
+  history,
+  location,
+}: {
+  user: ?User,
+  history: { push: (path: string) => void },
+  location: { search: string },
+}) => (
   <nav className={styles.nav}>
     <form
       action="/"

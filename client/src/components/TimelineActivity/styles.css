@@ -1,0 +1,106 @@
+.outer {
+  display: flex;
+  flex-direction: row;
+
+  padding: 1em;
+
+  cursor: pointer;
+
+  background: #fff;
+}
+
+.outer a:hover {
+  text-decoration: underline;
+}
+
+.outer:first-child {
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
+}
+
+.outer:last-child {
+  border-bottom-right-radius: 5px;
+  border-bottom-left-radius: 5px;
+}
+
+.deselected + .deselected {
+  border-top: 1px solid #ddd;
+}
+
+.deselected {
+  transition: margin-top .1s, margin-bottom .1s, border-radius .1s;
+}
+
+.selected {
+  margin-top: 1em;
+  margin-right: -1px;
+  margin-bottom: 1em;
+  margin-left: -1px;
+
+  transition: margin-top .1s, margin-bottom .1s, border-radius .1s;
+
+  border: 1px solid #eee;
+  border-radius: 5px;
+}
+
+.avatar {
+  width: 60px;
+  height: 60px;
+  margin-right: 1em;
+}
+
+.avatarImage {
+  border-radius: 5px;
+}
+
+.body {
+  flex: 1;
+}
+
+.header {
+  margin-bottom: .5em;
+}
+
+.displayName {
+  font-weight: bold;
+
+  color: #000;
+}
+
+.content {
+  line-height: 1.2em;
+
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.time {
+  font-size: .8em;
+
+  float: right;
+
+  color: #777;
+}
+
+.time:hover {
+  text-decoration: underline;
+}
+
+.footer {
+  font-size: .8em;
+
+  opacity: .6;
+}
+
+.outer:hover .footer,
+.outer:hover .time {
+  opacity: 1;
+}
+
+.inReplyTo,
+.from {
+  display: inline-block;
+
+  margin-top: 7px;
+  margin-right: .25em;
+}

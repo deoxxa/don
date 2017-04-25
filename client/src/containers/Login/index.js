@@ -10,19 +10,17 @@ import type { State as AuthenticationState } from 'ducks/authentication';
 
 import styles from './styles.css';
 
-const Login = (
-  {
-    authenticationLogin,
-    authentication: { error, user },
-    location,
-    history,
-  }: {
-    authenticationLogin: (username: string, password: string) => Promise<void>,
-    authentication: AuthenticationState,
-    location: { search: string },
-    history: { push: (path: string) => void },
-  }
-) => {
+const Login = ({
+  authenticationLogin,
+  authentication: { error, user },
+  location,
+  history,
+}: {
+  authenticationLogin: (username: string, password: string) => Promise<void>,
+  authentication: AuthenticationState,
+  location: { search: string },
+  history: { push: (path: string) => void },
+}) => {
   const returnTo = new URLSearchParams(location.search).get('return_to') || '/';
 
   return (

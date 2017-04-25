@@ -33,5 +33,5 @@
 .loadingActive {
   width: 100%;
 
-  transition: width 1.5s ease-in-out;
+  transition: width 5s ease-in-out;
 }

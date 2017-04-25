@@ -16,7 +16,7 @@
 .active {
   transition: color .2s ease;
 
-  color: #afa;
+  color: #fff;
 }
 
 .link + .link {

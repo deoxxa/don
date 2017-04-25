@@ -58,76 +58,71 @@ export const authenticationRegister = (
   email: string,
   username: string,
   password: string
-) =>
-  (dispatch: (a: Object) => void) => {
-    const params = new URLSearchParams();
-    params.append('email', email);
-    params.append('username', username);
-    params.append('password', password);
+) => (dispatch: (a: Object) => void) => {
+  const params = new URLSearchParams();
+  params.append('email', email);
+  params.append('username', username);
+  params.append('password', password);
 
-    dispatch(authenticationLoading());
+  dispatch(authenticationLoading());
 
-    return new Promise((resolve, reject) => {
-      axios.post('/register', params).then(
-        (
-          {
-            data: { authentication: { user } },
-          }: { data: { authentication: { user: User } } }
-        ) => {
-          dispatch(authenticationSuccess(user));
-          resolve();
-        },
-        err => {
-          dispatch(authenticationError(err));
-          reject(err);
-        }
-      );
-    });
-  };
+  return new Promise((resolve, reject) => {
+    axios.post('/register', params).then(
+      ({
+        data: { authentication: { user } },
+      }: { data: { authentication: { user: User } } }) => {
+        dispatch(authenticationSuccess(user));
+        resolve();
+      },
+      err => {
+        dispatch(authenticationError(err));
+        reject(err);
+      }
+    );
+  });
+};
 
-export const authenticationLogin = (username: string, password: string) =>
-  (dispatch: (a: Object) => void) => {
-    const params = new URLSearchParams();
-    params.append('username', username);
-    params.append('password', password);
+export const authenticationLogin = (username: string, password: string) => (
+  dispatch: (a: Object) => void
+) => {
+  const params = new URLSearchParams();
+  params.append('username', username);
+  params.append('password', password);
 
-    dispatch(authenticationLoading());
+  dispatch(authenticationLoading());
 
-    return new Promise((resolve, reject) => {
-      axios.post('/login', params).then(
-        (
-          {
-            data: { authentication: { user } },
-          }: { data: { authentication: { user: User } } }
-        ) => {
-          dispatch(authenticationSuccess(user));
-          resolve();
-        },
-        err => {
-          dispatch(authenticationError(err));
-          reject(err);
-        }
-      );
-    });
-  };
+  return new Promise((resolve, reject) => {
+    axios.post('/login', params).then(
+      ({
+        data: { authentication: { user } },
+      }: { data: { authentication: { user: User } } }) => {
+        dispatch(authenticationSuccess(user));
+        resolve();
+      },
+      err => {
+        dispatch(authenticationError(err));
+        reject(err);
+      }
+    );
+  });
+};
 
-export const authenticationLogout = () =>
-  (dispatch: (a: Object) => void) => {
-    dispatch(authenticationLoading());
+export const authenticationLogout = () => (dispatch: (a: Object) => void) => {
+  dispatch(authenticationLoading());
 
-    return new Promise((resolve, reject) => {
-      axios.post('/logout').then(
-        () => {
-          dispatch(authenticationReset());
-          resolve();
-        },
-        err => {
-          dispatch(authenticationError(err));
-          reject(err);
-        }
-      );
-    });
-  };
+  return new Promise((resolve, reject) => {
+    axios.post('/logout').then(
+      () => {
+        dispatch(authenticationReset());
+        resolve();
+      },
+      err => {
+        dispatch(authenticationError(err));
+        reject(err);
+      }
+    );
+  });
+};
 
 const defaultState = {
   loading: false,

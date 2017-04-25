@@ -41,8 +41,16 @@
 
   height: 40px;
 
+  transition: color .2s ease;
+
   color: inherit;
 
   align-items: center;
   justify-content: space-around;
+}
+
+.login:hover {
+  transition: color .2s ease;
+
+  color: #fff;
 }

@@ -6,9 +6,9 @@
 function searchParamsFromFormData(data: FormData): string {
   const searchParams = new URLSearchParams();
   for (const [key, val] of data.entries()) {
-  	if (typeof val === 'string') {
-  		searchParams.append(key, val);
-  	}
+    if (typeof val === 'string') {
+      searchParams.append(key, val);
+    }
   }
   return searchParams.toString();
 }

@@ -8,17 +8,15 @@ import type { State as AuthenticationState } from 'ducks/authentication';
 
 import styles from './styles.css';
 
-const Logout = (
-  {
-    authentication: { user },
-    authenticationLogout,
-    history,
-  }: {
-    authentication: AuthenticationState,
-    authenticationLogout: () => Promise<void>,
-    history: { push: (path: string) => void },
-  }
-) => (
+const Logout = ({
+  authentication: { user },
+  authenticationLogout,
+  history,
+}: {
+  authentication: AuthenticationState,
+  authenticationLogout: () => Promise<void>,
+  history: { push: (path: string) => void },
+}) => (
   <div>
     {!user
       ? <h1>You are already logged out.</h1>

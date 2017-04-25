@@ -1,43 +1,45 @@
-.pre {
-  color: #555;
-}
-
-.form {
-  margin: 1em auto;
-  text-align: center;
-  flex-direction: row;
-}
-
-.form > div {
+.outer {
   display: flex;
+  flex-direction: row;
+
+  justify-content: space-around;
 }
 
-.form label {
-  display: block;
-  margin-bottom: 1em;
+.sidebar {
+  box-sizing: border-box;
+  width: 200px;
+  margin-right: .5em;
 }
 
-.form input {
-  font-size: 1em;
+.sidebarItem {
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: .5em;
+  padding: .5em .7em;
+
+  border-radius: 5px;
   background: #fff;
-  border: 1px solid rgba(0, 0, 0, .2);
+  box-shadow: 0 0 5px #ddd;
 }
 
-.form input[type=text] {
+.activities {
+  max-width: 600px;
+
   flex: 1;
-  border-radius: 6px 0 0 6px;
-  text-align: center;
 }
 
-.form input[type=submit] {
-  border-radius: 0 6px 6px 0;
-  padding: .5em 1.2em;
-  cursor: pointer;
-  border-left: none;
+.post {
+  box-sizing: border-box;
+  margin-bottom: .5em;
+  padding: .5em .7em;
+
+  border-radius: 5px;
+  background: #fff;
+  box-shadow: 0 0 5px #ddd;
 }
 
-#userInput {}
+.input {
+  font-size: 1.2em;
 
-.blurb {
-  margin: auto;
+  width: 100%;
 }

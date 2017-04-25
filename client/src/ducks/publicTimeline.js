@@ -54,6 +54,10 @@ export const publicTimelineLoading = () => ({
   type: 'don/publicTimeline/LOADING',
   payload: {},
 });
+export const publicTimelineAdd = (activity: ASActivity) => ({
+  type: 'don/publicTimeline/ADD',
+  payload: { activity },
+});
 
 export const publicTimelineFetch = () => (dispatch: (a: Object) => void) => {
   dispatch(publicTimelineLoading());
@@ -82,6 +86,10 @@ export default (
         payload: { activities: Array<ASActivity> },
       }
     | { type: 'don/publicTimeline/LOADING', payload: {} }
+    | {
+        type: 'don/publicTimeline/ADD',
+        payload: { activity: ASActivity },
+      }
 ) => {
   switch (action.type) {
     case 'don/publicTimeline/ERROR':
@@ -102,6 +110,13 @@ export default (
         ...state,
         loading: true,
         error: null,
+      };
+    case 'don/publicTimeline/ADD':
+      return {
+        ...state,
+        loading: false,
+        error: null,
+        activities: state.activities.concat([action.payload.activity]),
       };
     default:
       return state;
