@@ -134,7 +134,7 @@ class Home extends Component {
 
     const params = new URLSearchParams(search);
 
-    this._feed = new EventSource(`/api/feed?q=${params.get('q')}`);
+    this._feed = new EventSource(`/api/feed?q=${params.get('q') || ''}`);
 
     this._feed.addEventListener('activity', ({ data }: { data: string }) => {
       try {
