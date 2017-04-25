@@ -162,7 +162,7 @@ func (a *App) OnMessage(id string, s *pubsub.Subscription, rd io.ReadCloser) {
 			return
 		}
 
-		if _, err := a.SQLDB.Exec("insert into documents (created_at, xml) values ($1, $2)", time.Now(), string(d)); err != nil {
+		if _, err := a.SQLDB.Exec("insert into pubsub_documents (created_at, xml) values ($1, $2)", time.Now(), string(d)); err != nil {
 			logrus.WithField("id", id).WithError(err).Debug("pubsub: couldn't save document")
 			return
 		}
