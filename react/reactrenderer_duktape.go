@@ -3,8 +3,8 @@ package react
 import (
 	"fmt"
 
-	"github.com/olebedev/go-duktape"
 	"github.com/pkg/errors"
+	"gopkg.in/olebedev/go-duktape.v3"
 )
 
 type DuktapeRenderer struct {

@@ -100,10 +100,6 @@
 			"Rev": "7c570a907cfc69cdc004ad506c6f5e234815b936"
 		},
 		{
-			"ImportPath": "github.com/olebedev/go-duktape",
-			"Rev": "55fa18c4e63070a925cf2090e699d4e6edd80949"
-		},
-		{
 			"ImportPath": "github.com/pkg/errors",
 			"Comment": "v0.7.1-1-ga887431",
 			"Rev": "a887431f7f6ef7687b556dbf718d9f351d4858a0"
@@ -217,6 +213,10 @@
 			"ImportPath": "gopkg.in/hlandau/passlib.v1/hash/sha2crypt/raw",
 			"Comment": "v1.0.9",
 			"Rev": "933f1c3f63ffb0d17de04c3174f875ae683a33cd"
+		},
+		{
+			"ImportPath": "gopkg.in/olebedev/go-duktape.v3",
+			"Rev": "bb87dea2db4a1f68f67b5c7a664ff5df9f279e49"
 		}
 	]
 }
