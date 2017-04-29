@@ -10,22 +10,22 @@ don_bare: *.go $(shell find acct activitystreams commonxml hostmeta pubsub react
 build/entry-server-bundle.js: $(shell find client/src -type f) client/webpack.* client/yarn.lock client/package.json
 ifeq ($(JS_TOOLCHAIN),host)
 	@echo "--> Building server JavaScript bundle with host toolchain"
-	@cd client; yarn run build-server
+	@cd client; yarn && yarn run build-server
 	@touch build/entry-server-bundle.js
 else
 	@echo "--> Building server JavaScript bundle via docker"
-	@docker run --rm -it -v `pwd`:/app deoxxa/node-yarn:7.4 bash -c 'cd /app/client && yarn run build-server'
+	@docker run --rm -it -v `pwd`:/app deoxxa/node-yarn:7.4 bash -c 'cd /app/client && yarn && yarn run build-server'
 	@touch build/entry-server-bundle.js
 endif
 
 build/entry-client-bundle.js: $(shell find client/src -type f) client/webpack.* client/yarn.lock client/package.json
 ifeq ($(JS_TOOLCHAIN),host)
 	@echo "--> Building client JavaScript bundle with host toolchain"
-	@cd client; yarn run build-client
+	@cd client; yarn && yarn run build-client
 	@touch build/entry-client-bundle.js
 else
 	@echo "--> Building client JavaScript bundle via docker"
-	@docker run --rm -it -v `pwd`:/app deoxxa/node-yarn:7.4 bash -c 'cd /app/client && yarn run build-client'
+	@docker run --rm -it -v `pwd`:/app deoxxa/node-yarn:7.4 bash -c 'cd /app/client && yarn && yarn run build-client'
 	@touch build/entry-client-bundle.js
 endif
 
