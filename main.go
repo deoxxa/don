@@ -47,6 +47,7 @@ var (
 	pubsubRefreshInterval = app.Flag("pubsub_refresh_interval", "PubSub subscription refresh interval.").Default("15m").Envar("PUBSUB_REFRESH_INTERVAL").Duration()
 	recordDocuments       = app.Flag("record_documents", "Record all XML documents for debugging.").Envar("RECORD_DOCUMENTS").Bool()
 	reactRenderer         = app.Flag("react_renderer", "React server rendering strategy.").Envar("REACT_RENDERER").Default("duktape").Enum("duktape", "node")
+	reactProcesses        = app.Flag("react_processes", "React server rendering process count.").Envar("REACT_PROCESSES").Default("4").Int()
 	externalJS            = app.Flag("external_js", "Load client JS from an external location.").Envar("EXTERNAL_JS").String()
 	cookieSigningKey      = app.Flag("cookie_signing_key", "Key for signing cookies.").Envar("COOKIE_SIGNING_KEY").Required().HexBytes()
 	cookieEncryptionKey   = app.Flag("cookie_encryption_key", "Key for encrypting cookies.").Envar("COOKIE_ENCRYPTION_KEY").Required().HexBytes()
@@ -133,9 +134,9 @@ func main() {
 	var renderer react.Renderer
 	switch *reactRenderer {
 	case "duktape":
-		renderer = react.NewDuktapeRenderer(1)
+		renderer = react.NewDuktapeRenderer(*reactProcesses)
 	case "node":
-		renderer = react.NewNodeJSRenderer(1)
+		renderer = react.NewNodeJSRenderer(*reactProcesses)
 	}
 
 	rootTemplate := template.New("root")
